@@ -9,28 +9,6 @@
 //=============================================================================================
 #include "framework.h"
 
-//---------------------------
-struct Clifford {
-//---------------------------
-	float f, d;
-	Clifford(float f0 = 0, float d0 = 0) { f = f0, d = d0; }
-	Clifford operator+(Clifford r) { return Clifford(f + r.f, d + r.d); }
-	Clifford operator-(Clifford r) { return Clifford(f - r.f, d - r.d); }
-	Clifford operator*(Clifford r) { return Clifford(f * r.f, f * r.d + d * r.f); }
-	Clifford operator/(Clifford r) {
-		float l = r.f * r.f;
-		return (*this) * Clifford(r.f / l, -r.d / l);
-	}
-};
-
-Clifford T(float t) { return Clifford(t, 1); }
-Clifford Sin(Clifford g) { return Clifford(sin(g.f), cos(g.f) * g.d); }
-Clifford Cos(Clifford g) { return Clifford(cos(g.f), -sin(g.f) * g.d); }
-Clifford Tan(Clifford g) { return Sin(g) / Cos(g); }
-Clifford Log(Clifford g) { return Clifford(logf(g.f), 1 / g.f * g.d); }
-Clifford Exp(Clifford g) { return Clifford(expf(g.f), expf(g.f) * g.d); }
-Clifford Pow(Clifford g, float n) { return Clifford(powf(g.f, n), n * powf(g.f, n - 1) * g.d); }
-
 // Source: Vid 9.1 (3D motorka)
 //---------------------------
 template<class T> struct Dnum {
@@ -434,7 +412,21 @@ class ParamSurface : public Geometry {
 public:
 	ParamSurface() { nVtxPerStrip = nStrips = 0; }
 
-	virtual VertexData GenVertexData(float u, float v) = 0;
+	// Source: Vid 9.1 (3D motorka)
+	virtual void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) = 0;
+
+	// Source: Vid 9.1 (3D motorka)
+	VertexData GenVertexData(float u, float v) {
+		VertexData vtxData;
+		vtxData.texcoord = vec2(u, v);
+		Dnum2 X, Y, Z;
+		Dnum2 U(u, vec2(1, 0)), V(v, vec2(0, 1));
+		eval(U, V, X, Y, Z);
+		vtxData.position = vec3(X.f, Y.f, Z.f);
+		vec3 drdU(X.d.x, Y.d.x, Z.d.x), drdV(X.d.y, Y.d.y, Z.d.y);
+		vtxData.normal = cross(drdU, drdV);
+		return vtxData;
+	}
 
 	void create(int N = tessellationLevel, int M = tessellationLevel) {
 		nVtxPerStrip = (M + 1) * 2;
@@ -469,102 +461,42 @@ class Sphere : public ParamSurface {
 public:
 	Sphere() { create(); }
 
-	VertexData GenVertexData(float u, float v) {
-		VertexData vd;
-		vd.position = vd.normal = vec3(cosf(u * 2.0f * (float)M_PI) * sinf(v * (float)M_PI),
-			                           sinf(u * 2.0f * (float)M_PI) * sinf(v * (float)M_PI),
-			                           cosf(v * (float)M_PI));
-		vd.texcoord = vec2(u, v);
-		return vd;
+	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
+		U = U * 2.0f * (float)M_PI;
+		V = V * (float)M_PI;
+		X = Cos(U) * Sin(V);
+		Y = Sin(U) * Sin(V);
+		Z = Cos(V);
 	}
 };
 
 //---------------------------
-class Torus : public ParamSurface {
+class Tracticoid : public ParamSurface {
 //---------------------------
-	const float R = 1, r = 0.5;
-
-	vec3 Point(float u, float v, float rr) {
-		float ur = u * 2.0f * (float)M_PI, vr = v * 2.0f * (float)M_PI;
-		float l = R + rr * cosf(ur);
-		return vec3(l * cosf(vr), l * sinf(vr), rr * sinf(ur));
-	}
 public:
-	Torus() { create(); }
+	Tracticoid() { create(); }
 
-	VertexData GenVertexData(float u, float v) {
-		VertexData vd;
-		vd.position = Point(u, v, r);
-		vd.normal = (vd.position - Point(u, v, 0)) * (1.0f / r);
-		vd.texcoord = vec2(u, v);
-		return vd;
-	}
-	vec3 point(float u, float v) {
-		return Point(u, v, r);
-	}
-};
-
-//---------------------------
-class Mobius : public ParamSurface {
-//---------------------------
-	float R, w;
-public:
-	Mobius() { R = 1; w = 0.5; create(); }
-
-	VertexData GenVertexData(float u, float v) {
-		VertexData vd;
-		Clifford U(u * (float)M_PI, 1), V((v - 0.5f) * w, 0);
-		Clifford x = (Cos(U) * V + R) * Cos(U * 2);
-		Clifford y = (Cos(U) * V + R) * Sin(U * 2);
-		Clifford z = Sin(U) * V;
-		vd.position = vec3(x.f, y.f, z.f);
-		vec3 drdU(x.d, y.d, z.d);
-		vec3 drdV(cos(U.f)*cosf(2 * U.f), cosf(U.f)*sin(2 * U.f), sinf(U.f));
-		vd.normal = cross(drdU, drdV);
-		vd.texcoord = vec2(u, v);
-		return vd;
-	}
-};
-
-//---------------------------
-class Dini : public ParamSurface {
-//---------------------------
-	Clifford a = 1.0f, b = 0.15f;
-public:
-	Dini() { create(); }
-
-	VertexData GenVertexData(float u, float v) {
-		VertexData vd;
-		Clifford U(u * 4 * M_PI, 1), V(0.01f + (1 - 0.01f) * v, 0);
-		Clifford X = a * Cos(U) * Sin(V);
-		Clifford Y = a * Sin(U) * Sin(V);
-		Clifford Z = a * (Cos(V) + Log(Tan(V / 2))) + b * U + 3;
-		vd.position = vec3(X.f, Y.f, Z.f);
-		vec3 drdU = vec3(X.d, Y.d, Z.d);
-
-		U.d = 0, V.d = 1;
-		X = a * Cos(U) * Sin(V);
-		Y = a * Sin(U) * Sin(V);
-		Z = a * (Cos(V) + Log(Tan(V) / 2)) + b * U + 10;
-		vec3 drdV = vec3(X.d, Y.d, Z.d);
-
-		vd.normal = cross(drdU, drdV);
-		vd.texcoord = vec2(u, v);
-		return vd;
+	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
+		const float height = 3.0f;
+		U = U * height;
+		V = V * 2.0f * (float)M_PI;
+		X = Cos(V) / Cosh(U);
+		Y = Sin(V) / Cosh(U);
+		Z = U - Tanh(U);
 	}
 };
 
 //---------------------------
 struct Object {
 //---------------------------
-	Shader *   shader;
-	Material * material;
-	Texture *  texture;
-	Geometry * geometry;
+	Shader*   shader;
+	Material* material;
+	Texture*  texture;
+	Geometry* geometry;
 	vec3 scale, translation, rotationAxis;
 	float rotationAngle;
 public:
-	Object(Shader * _shader, Material * _material, Texture * _texture, Geometry * _geometry) :
+	Object(Shader* _shader, Material* _material, Texture* _texture, Geometry* _geometry) :
 		scale(vec3(1, 1, 1)), translation(vec3(0, 0, 0)), rotationAxis(0, 0, 1), rotationAngle(0) {
 		shader = _shader;
 		texture = _texture;
@@ -623,57 +555,32 @@ public:
 
 		// Geometries
 		Geometry * sphere = new Sphere();
-		Geometry * torus = new Torus();
-		Geometry * mobius = new Mobius();
+		Geometry * tracticoid = new Tracticoid();
+		//Geometry * torus = new Torus();
+		//Geometry * mobius = new Mobius();
 
 		// Create objects by setting up their vertex data on the GPU
-		Object * sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
+		Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
 		sphereObject1->translation = vec3(-3, 3, 0);
 		sphereObject1->rotationAxis = vec3(0, 1, 1);
-		sphereObject1->scale = vec3(0.5f, 1.2f, 0.5f);
+		sphereObject1->scale = vec3(0.5f, 0.5f, 1.2f);
 		objects.push_back(sphereObject1);
 
-		Object * torusObject1 = new Object(phongShader, material0, texture4x8, torus);
-		torusObject1->translation = vec3(0, 3, 0);
-		torusObject1->rotationAxis = vec3(1, 1, -1);
-		torusObject1->scale = vec3(0.7f, 0.7f, 0.7f);
-		objects.push_back(torusObject1);
+		Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
+		tracticoidObject1->translation = vec3(0, 3, 0);
+		tracticoidObject1->rotationAxis = vec3(0, 1, 1);
+		tracticoidObject1->scale = vec3(1.0f, 1.0f, 0.8f);
+		objects.push_back(tracticoidObject1);
 
-		Object * mobiusObject1 = new Object(phongShader, material0, texture4x8, mobius);
-		mobiusObject1->translation = vec3(3, 3, 0);
-		mobiusObject1->rotationAxis = vec3(1, 0, 0);
-		mobiusObject1->scale = vec3(0.7f, 0.7f, 0.7f);
-		objects.push_back(mobiusObject1);
+		Object* tracticoidObject2 = new Object(*tracticoidObject1);
+		tracticoidObject2->translation = vec3(0, 0, 0);
+		tracticoidObject2->shader = gouraudShader;
+		objects.push_back(tracticoidObject2);
 
-		Object * sphereObject2 = new Object(*sphereObject1);
-		sphereObject2->translation = vec3(-3, -3, 0);
-		sphereObject2->shader = nprShader;
-		objects.push_back(sphereObject2);
-
-		Object * torusObject2 = new Object(*torusObject1);
-		torusObject2->translation = vec3(0, -3, 0);
-		torusObject2->shader = nprShader;
-		objects.push_back(torusObject2);
-
-		Object * mobiusObject2 = new Object(*mobiusObject1);
-		mobiusObject2->translation = vec3(3, -3, 0);
-		mobiusObject2->shader = nprShader;
-		objects.push_back(mobiusObject2);
-
-		Object * sphereObject3 = new Object(*sphereObject1);
-		sphereObject3->translation = vec3(-3, 0, 0);
-		sphereObject3->shader = gouraudShader;
-		objects.push_back(sphereObject3);
-
-		Object * torusObject3 = new Object(*torusObject1);
-		torusObject3->translation = vec3(0, 0, 0);
-		torusObject3->shader = gouraudShader;
-		objects.push_back(torusObject3);
-
-		Object * mobiusObject3 = new Object(*mobiusObject1);
-		mobiusObject3->translation = vec3(3, 0, 0);
-		mobiusObject3->shader = gouraudShader;
-		objects.push_back(mobiusObject3);
+		Object* tracticoidObject3 = new Object(*tracticoidObject1);
+		tracticoidObject3->translation = vec3(0, -3, 0);
+		tracticoidObject3->shader = nprShader;
+		objects.push_back(tracticoidObject3);
 
 		// Camera
 		camera.wEye = vec3(0, 0, 6);
@@ -682,7 +589,7 @@ public:
 
 		// Lights
 		lights.resize(3);
-		lights[0].wLightPos = vec4(5, 5, 4, 0);	// ideal point -> directional light source
+		lights[0].wLightPos = vec4(5, 5, 4, 0);		// ideal point -> directional light source
 		lights[0].La = vec3(0.1f, 0.1f, 1);
 		lights[0].Le = vec3(3, 0, 0);
 
