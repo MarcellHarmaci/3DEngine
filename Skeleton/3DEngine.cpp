@@ -9,6 +9,64 @@
 //=============================================================================================
 #include "framework.h"
 
+//---------------------------
+struct Clifford {
+//---------------------------
+	float f, d;
+	Clifford(float f0 = 0, float d0 = 0) { f = f0, d = d0; }
+	Clifford operator+(Clifford r) { return Clifford(f + r.f, d + r.d); }
+	Clifford operator-(Clifford r) { return Clifford(f - r.f, d - r.d); }
+	Clifford operator*(Clifford r) { return Clifford(f * r.f, f * r.d + d * r.f); }
+	Clifford operator/(Clifford r) {
+		float l = r.f * r.f;
+		return (*this) * Clifford(r.f / l, -r.d / l);
+	}
+};
+
+Clifford T(float t) { return Clifford(t, 1); }
+Clifford Sin(Clifford g) { return Clifford(sin(g.f), cos(g.f) * g.d); }
+Clifford Cos(Clifford g) { return Clifford(cos(g.f), -sin(g.f) * g.d); }
+Clifford Tan(Clifford g) { return Sin(g) / Cos(g); }
+Clifford Log(Clifford g) { return Clifford(logf(g.f), 1 / g.f * g.d); }
+Clifford Exp(Clifford g) { return Clifford(expf(g.f), expf(g.f) * g.d); }
+Clifford Pow(Clifford g, float n) { return Clifford(powf(g.f, n), n * powf(g.f, n - 1) * g.d); }
+
+// Source: Vid 9.1 (3D motorka)
+//---------------------------
+template<class T> struct Dnum {
+//---------------------------
+	float f; // function value
+	T d;	 // derivatives
+
+	Dnum(float f0 = 0, T d0 = T(0)) {
+		f = f0; d = d0;
+	}
+
+	Dnum operator+(Dnum r) { return Dnum(f + r.f, d + r.d); }
+	Dnum operator-(Dnum r) { return Dnum(f - r.f, d - r.d); }
+	Dnum operator*(Dnum r) { 
+		return Dnum(f * r.f, f * r.d + d * r.f);
+	}
+	Dnum operator/(Dnum r) {
+		return Dnum(f / r.f, (r.f * d - r.d * f) / r.f / r.f);
+	}
+};
+typedef Dnum<vec2> Dnum2;
+
+// Source: Vid 9.1 (3D motorka)
+// Elementary functions prepared for chain rule
+template<class T> Dnum<T> Exp(Dnum<T> g)  { return Dnum<T>(expf(g.f),  expf(g.f) * g.d); }
+template<class T> Dnum<T> Sin(Dnum<T> g)  { return Dnum<T>(sinf(g.f),  cosf(g.f) * g.d); }
+template<class T> Dnum<T> Cos(Dnum<T> g)  { return Dnum<T>(cosf(g.f), -sinf(g.f) * g.d); }
+template<class T> Dnum<T> Sinh(Dnum<T> g) { return Dnum<T>(sinh(g.f),  cosh(g.f) * g.d); }
+template<class T> Dnum<T> Cosh(Dnum<T> g) { return Dnum<T>(cosh(g.f),  sinh(g.f) * g.d); }
+template<class T> Dnum<T> Tan(Dnum<T> g)  { return Sin(g)  /  Cos(g); }
+template<class T> Dnum<T> Tanh(Dnum<T> g) { return Sinh(g) / Cosh(g); }
+template<class T> Dnum<T> Log(Dnum<T> g)  { return Dnum<T>(logf(g.f), g.d / g.f); }
+template<class T> Dnum<T> Pow(Dnum<T> g, float n) {
+	return Dnum<T>(powf(g.f, n), n * powf(g.f, n - 1) * g.d);
+}
+
 const int tessellationLevel = 20;
 
 //---------------------------
@@ -64,7 +122,7 @@ class CheckerBoardTexture : public Texture {
 public:
 	CheckerBoardTexture(const int width = 0, const int height = 0) : Texture() {
 		std::vector<vec4> image(width * height);
-		const vec4 yellow(1, 1, 0, 1), blue(0, 0, 1, 1);
+		const vec4 yellow(1, 1, 0, 1), blue(0, 0, 1, 1);	// TODO remove -> chocolate(152/256.0f, 66/256.0f, 0, 1)
 		for (int x = 0; x < width; x++) for (int y = 0; y < height; y++) {
 			image[y * width + x] = (x & 1) ^ (y & 1) ? yellow : blue;
 		}
@@ -404,28 +462,6 @@ public:
 		for (unsigned int i = 0; i < nStrips; i++) glDrawArrays(GL_TRIANGLE_STRIP, i *  nVtxPerStrip, nVtxPerStrip);
 	}
 };
-
-//---------------------------
-struct Clifford {
-//---------------------------
-	float f, d;
-	Clifford(float f0 = 0, float d0 = 0) { f = f0, d = d0; }
-	Clifford operator+(Clifford r) { return Clifford(f + r.f, d + r.d); }
-	Clifford operator-(Clifford r) { return Clifford(f - r.f, d - r.d); }
-	Clifford operator*(Clifford r) { return Clifford(f * r.f, f * r.d + d * r.f); }
-	Clifford operator/(Clifford r) {
-		float l = r.f * r.f;
-		return (*this) * Clifford(r.f / l, -r.d / l);
-	}
-};
-
-Clifford T(float t) { return Clifford(t, 1); }
-Clifford Sin(Clifford g) { return Clifford(sin(g.f), cos(g.f) * g.d); }
-Clifford Cos(Clifford g) { return Clifford(cos(g.f), -sin(g.f) * g.d); }
-Clifford Tan(Clifford g) { return Sin(g)/Cos(g); }
-Clifford Log(Clifford g) { return Clifford(logf(g.f), 1 / g.f * g.d); }
-Clifford Exp(Clifford g) { return Clifford(expf(g.f), expf(g.f) * g.d); }
-Clifford Pow(Clifford g, float n) { return Clifford(powf(g.f, n), n * powf(g.f, n - 1) * g.d); }
 
 //---------------------------
 class Sphere : public ParamSurface {
