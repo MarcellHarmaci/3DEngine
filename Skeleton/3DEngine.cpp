@@ -690,8 +690,8 @@ public:
 
 		// Geometries
 		Geometry * sphere = new Sphere();
-		Geometry * tracticoid = new Tracticoid();
-		Geometry * tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 2), vec3(2, 0, -2), vec3(-2, 0, -2)), vec3(0, 2, 0));
+		Geometry * tracticoid = new Tracticoid(); 
+		Geometry * tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1), vec3(1, 0, 0), vec3(-0.36603, 0, -0.36603)), vec3(0.21132, 1.1547, 0.21132));
 		
 		// Create objects by setting up their vertex data on the GPU
 		Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
@@ -700,7 +700,7 @@ public:
 		objects.push_back(sphereObject1);
 
 		Object* tetra = new Object(phongShader, blueRough, blueTexture, tetrahedron);
-		tetra->rotationAxis = vec3(0, 1, -1);
+		tetra->rotationAxis = vec3(1, 1, 0);
 		objects.push_back(tetra);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
