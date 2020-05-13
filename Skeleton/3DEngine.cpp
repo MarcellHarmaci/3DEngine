@@ -5,7 +5,7 @@
 // Texture: CPU-procedural
 // Geometry: sphere, torus, mobius
 // Camera: perspective
-// Light: point
+// Light: top
 //=============================================================================================
 #include "framework.h"
 
@@ -100,11 +100,21 @@ class CheckerBoardTexture : public Texture {
 public:
 	CheckerBoardTexture(const int width = 0, const int height = 0) : Texture() {
 		std::vector<vec4> image(width * height);
-		const vec4 yellow(1, 1, 0, 1), blue(0, 0, 1, 1);	// TODO remove -> chocolate(152/256.0f, 66/256.0f, 0, 1)
+		const vec4 yellow(1, 1, 0, 1), blue(0, 0, 1, 1), chocolate(152 / 256.0f, 66 / 256.0f, 0, 1); // TODO remove chocolate
 		for (int x = 0; x < width; x++) for (int y = 0; y < height; y++) {
 			image[y * width + x] = (x & 1) ^ (y & 1) ? yellow : blue;
 		}
 		create(width, height, image, GL_NEAREST);
+	}
+};
+
+class BlueTexture : public Texture {
+public:
+	BlueTexture(const int width = 0, const int height = 0) : Texture() {
+		std::vector<vec4> image(width * height);
+		for (int x = 0; x < width; x++) for (int y = 0; y < height; y++) {
+			image[y * width + x] = vec4(0, 0, 1, 1);
+		}
 	}
 };
 
@@ -405,6 +415,122 @@ public:
 	}
 };
 
+mat4 transpose(mat4 mx) {
+	vec4 a = mx[0], b = mx[1], c = mx[2], d = mx[3];
+	return mat4(
+		a.x, b.x, c.x, d.x,
+		a.y, b.y, c.y, d.y,
+		a.z, b.z, c.z, d.z,
+		a.w, b.w, c.w, d.w
+	);
+}
+
+mat4 invRotationMx(mat4 mx) {
+	vec4 a = mx[0], b = mx[1], c = mx[2];
+	float a3b2c1 = a.z * b.y * c.x, a2b3c1 = a.y * b.z * c.x, a3b1c2 = a.z * b.x * c.y, a1b3c2 = a.x * b.z * c.y, a2b1c3 = a.y * b.x * c.z, a1b2c3 = a.x * b.y * c.z;
+	return mat4(
+		vec4(
+			(b.z * c.y - b.y * c.z) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			(a.z * c.y - a.y * c.z) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
+			(a.z * b.y - a.y * b.z) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			0.0f),
+		vec4(
+			(b.z * c.x - b.x * c.z) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
+			(a.z * c.x - a.x * c.z) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			(a.z * b.x - a.x * b.z) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
+			0.0f),
+		vec4(
+			(b.y * c.x - b.x * c.y) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			(a.y * c.x - a.x * c.y) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
+			(a.y * b.x - a.x * b.y) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			0.0f),
+		vec4(0.0f, 0.0f, 0.0f, 1.0f)
+	);
+}
+
+vec3 rotate(vec3 vector, float angle, vec3 w) {
+	vec4 vec(vector.x, vector.y, vector.z, 0);
+	mat4 rotaMx = RotationMatrix(angle, w);
+	mat4 invRotaMx = invRotationMx(rotaMx);
+	mat4 transposeOfInvRotaMx = transpose(invRotaMx);
+	vec4 rotated = vec * invRotaMx * transposeOfInvRotaMx;
+	return vec3(rotated.x, rotated.y, rotated.z);
+}
+
+struct Triangle {
+	vec3 vertices[3];
+	vec3 normal, center;
+
+	Triangle() {}
+
+	Triangle(vec3 a, vec3 b, vec3 c) {
+		vertices[0] = a;
+		vertices[1] = b;
+		vertices[2] = c;
+		center = (a + b + c) / 3.0f;
+		vec3 height = a - ((b + c) / 2.0f);
+		normal = (normalize(rotate(height, M_PI / 2.0f, b - c)));
+	}
+};
+
+class Tetrahedron : public Geometry {
+	std::vector<VertexData> vtxData;	// vertices on the CPU
+	Triangle triangles[4];
+	float height;
+	vec3 center;
+
+public:
+
+	Tetrahedron(Triangle &base, vec3 _top) {
+		vec3 top = _top;
+		triangles[0] = base;
+		triangles[1] = Triangle(top, base.vertices[0], base.vertices[1]);
+		triangles[2] = Triangle(top, base.vertices[1], base.vertices[2]);
+		triangles[3] = Triangle(top, base.vertices[2], base.vertices[0]);
+
+		create();
+	}
+
+	//void modHeight(float diff) {
+	//	height += diff;
+	//	vec3 midBottom = (points[1] + points[2] + points[3]) / 3.0f;
+	//	vec3 upDir = normalize(points[0] - midBottom);
+	//	points[0] = midBottom + upDir * height;
+	//}
+
+	void GenVertexData(Triangle triangle) {
+		for (vec3 vertex : triangle.vertices) {
+			VertexData currentVtxData;
+
+			currentVtxData.position = vertex;
+			currentVtxData.normal = triangle.normal;
+
+			vtxData.push_back(currentVtxData);
+		}
+	}
+
+	void create(int N = tessellationLevel, int M = tessellationLevel) {
+		for (int i = 0; i < 4; i++) {
+			GenVertexData(triangles[i]);
+		}
+
+		glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_STATIC_DRAW);
+		// Enable the vertex attribute arrays
+		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
+		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
+		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
+		// attribute array, components/attribute, component type, normalize?, stride, offset
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
+	}
+
+	void Draw() {
+		glBindVertexArray(vao);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+	}
+};
+
 //---------------------------
 class ParamSurface : public Geometry {
 //---------------------------
@@ -464,8 +590,9 @@ public:
 	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
 		U = U * 2.0f * (float)M_PI;
 		V = V * (float)M_PI;
-		X = Cos(U) * Sin(V);
-		Y = Sin(U) * Sin(V);
+		//Dnum2 wave = Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(3, vec2(0, 0)) * V) * Cos(Dnum2(3, vec2(0, 0)) * V);
+		X = Cos(U) * Sin(V) + Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(6, vec2(0, 0)) * V);
+		Y = Sin(U) * Sin(V) + Dnum2(0.2f, vec2(0, 0)) * Cos(Dnum2(6, vec2(0, 0)) * V);
 		Z = Cos(V);
 	}
 };
@@ -549,38 +676,38 @@ public:
 		material1->ka = vec3(0.2f, 0.2f, 0.2f);
 		material1->shininess = 30;
 
+		Material* blueRough = new Material();
+		blueRough->kd = vec3(0.12f, 0.22f, 0.32f);
+		blueRough->ks = vec3(2, 2, 2);
+		blueRough->ka = blueRough->kd * M_PI;
+		blueRough->shininess = 30;
+		blueRough->ka = vec3(2, 2, 2);
+
 		// Textures
 		Texture * texture4x8 = new CheckerBoardTexture(4, 8);
 		Texture * texture15x20 = new CheckerBoardTexture(15, 20);
+		Texture* blueTexture = new BlueTexture(3, 2);
 
 		// Geometries
 		Geometry * sphere = new Sphere();
 		Geometry * tracticoid = new Tracticoid();
-		//Geometry * torus = new Torus();
-		//Geometry * mobius = new Mobius();
-
+		Geometry * tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 2), vec3(2, 0, -2), vec3(-2, 0, -2)), vec3(0, 2, 0));
+		
 		// Create objects by setting up their vertex data on the GPU
 		Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
 		sphereObject1->translation = vec3(-3, 3, 0);
 		sphereObject1->rotationAxis = vec3(0, 1, 1);
-		sphereObject1->scale = vec3(0.5f, 0.5f, 1.2f);
 		objects.push_back(sphereObject1);
 
-		Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
-		tracticoidObject1->translation = vec3(0, 3, 0);
-		tracticoidObject1->rotationAxis = vec3(0, 1, 1);
-		tracticoidObject1->scale = vec3(1.0f, 1.0f, 0.8f);
-		objects.push_back(tracticoidObject1);
+		Object* tetra = new Object(phongShader, blueRough, blueTexture, tetrahedron);
+		tetra->rotationAxis = vec3(0, 1, -1);
+		objects.push_back(tetra);
 
-		Object* tracticoidObject2 = new Object(*tracticoidObject1);
-		tracticoidObject2->translation = vec3(0, 0, 0);
-		tracticoidObject2->shader = gouraudShader;
-		objects.push_back(tracticoidObject2);
-
-		Object* tracticoidObject3 = new Object(*tracticoidObject1);
-		tracticoidObject3->translation = vec3(0, -3, 0);
-		tracticoidObject3->shader = nprShader;
-		objects.push_back(tracticoidObject3);
+		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
+		//tracticoidObject1->translation = vec3(0, 3, 0);
+		//tracticoidObject1->rotationAxis = vec3(0, 1, 1);
+		//tracticoidObject1->scale = vec3(1.0f, 1.0f, 0.8f);
+		//objects.push_back(tracticoidObject1);
 
 		// Camera
 		camera.wEye = vec3(0, 0, 6);
@@ -589,15 +716,15 @@ public:
 
 		// Lights
 		lights.resize(3);
-		lights[0].wLightPos = vec4(5, 5, 4, 0);		// ideal point -> directional light source
+		lights[0].wLightPos = vec4(5, 5, 4, 0);		// ideal top -> directional light source
 		lights[0].La = vec3(0.1f, 0.1f, 1);
 		lights[0].Le = vec3(3, 0, 0);
 
-		lights[1].wLightPos = vec4(5, 10, 20, 0);	// ideal point -> directional light source
+		lights[1].wLightPos = vec4(5, 10, 20, 0);	// ideal top -> directional light source
 		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
 		lights[1].Le = vec3(0, 3, 0);
 
-		lights[2].wLightPos = vec4(-5, 5, 5, 0);	// ideal point -> directional light source
+		lights[2].wLightPos = vec4(-5, 5, 5, 0);	// ideal top -> directional light source
 		lights[2].La = vec3(0.1f, 0.1f, 0.1f);
 		lights[2].Le = vec3(0, 0, 3);
 	}
