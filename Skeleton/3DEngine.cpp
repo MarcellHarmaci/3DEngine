@@ -428,21 +428,22 @@ mat4 transpose(mat4 mx) {
 mat4 invRotationMx(mat4 mx) {
 	vec4 a = mx[0], b = mx[1], c = mx[2];
 	float a3b2c1 = a.z * b.y * c.x, a2b3c1 = a.y * b.z * c.x, a3b1c2 = a.z * b.x * c.y, a1b3c2 = a.x * b.z * c.y, a2b1c3 = a.y * b.x * c.z, a1b2c3 = a.x * b.y * c.z;
+	float denominator = a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3;
 	return mat4(
 		vec4(
-			(b.z * c.y - b.y * c.z) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
-			(a.z * c.y - a.y * c.z) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
-			(a.z * b.y - a.y * b.z) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			(b.z * c.y - b.y * c.z) / denominator,
+			(a.z * c.y - a.y * c.z) / -denominator,
+			(a.z * b.y - a.y * b.z) / denominator,
 			0.0f),
 		vec4(
-			(b.z * c.x - b.x * c.z) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
-			(a.z * c.x - a.x * c.z) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
-			(a.z * b.x - a.x * b.z) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
+			(b.z * c.x - b.x * c.z) / -denominator,
+			(a.z * c.x - a.x * c.z) / denominator,
+			(a.z * b.x - a.x * b.z) / -denominator,
 			0.0f),
 		vec4(
-			(b.y * c.x - b.x * c.y) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
-			(a.y * c.x - a.x * c.y) / (-a3b2c1 + a2b3c1 + a3b1c2 - a1b3c2 - a2b1c3 + a1b2c3),
-			(a.y * b.x - a.x * b.y) / (a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3),
+			(b.y * c.x - b.x * c.y) / denominator,
+			(a.y * c.x - a.x * c.y) / -denominator,
+			(a.y * b.x - a.x * b.y) / denominator,
 			0.0f),
 		vec4(0.0f, 0.0f, 0.0f, 1.0f)
 	);
@@ -488,6 +489,7 @@ public:
 		triangles[2] = Triangle(top, base.vertices[1], base.vertices[2]);
 		triangles[3] = Triangle(top, base.vertices[2], base.vertices[0]);
 
+		center = (base.vertices[0] + base.vertices[0] + base.vertices[0] + top) / 4.0f;
 		create();
 	}
 
@@ -503,7 +505,8 @@ public:
 			VertexData currentVtxData;
 
 			currentVtxData.position = vertex;
-			currentVtxData.normal = triangle.normal;
+			currentVtxData.normal = normalize(triangle.center - center);
+			currentVtxData.texcoord = vec2(1, 0);
 
 			vtxData.push_back(currentVtxData);
 		}
@@ -699,7 +702,7 @@ public:
 		sphereObject1->rotationAxis = vec3(0, 1, 1);
 		objects.push_back(sphereObject1);
 
-		Object* tetra = new Object(phongShader, blueRough, blueTexture, tetrahedron);
+		Object* tetra = new Object(phongShader, material1, texture15x20, tetrahedron);
 		tetra->rotationAxis = vec3(1, 1, 0);
 		objects.push_back(tetra);
 
