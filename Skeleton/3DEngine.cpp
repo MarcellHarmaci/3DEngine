@@ -12,7 +12,7 @@
 // Source: Vid 9.1 (3D motorka)
 //---------------------------
 template<class T> struct Dnum {
-//---------------------------
+	//---------------------------
 	float f; // function value
 	T d;	 // derivatives
 
@@ -22,7 +22,7 @@ template<class T> struct Dnum {
 
 	Dnum operator+(Dnum r) { return Dnum(f + r.f, d + r.d); }
 	Dnum operator-(Dnum r) { return Dnum(f - r.f, d - r.d); }
-	Dnum operator*(Dnum r) { 
+	Dnum operator*(Dnum r) {
 		return Dnum(f * r.f, f * r.d + d * r.f);
 	}
 	Dnum operator/(Dnum r) {
@@ -33,14 +33,14 @@ typedef Dnum<vec2> Dnum2;
 
 // Source: Vid 9.1 (3D motorka)
 // Elementary functions prepared for chain rule
-template<class T> Dnum<T> Exp(Dnum<T> g)  { return Dnum<T>(expf(g.f),  expf(g.f) * g.d); }
-template<class T> Dnum<T> Sin(Dnum<T> g)  { return Dnum<T>(sinf(g.f),  cosf(g.f) * g.d); }
-template<class T> Dnum<T> Cos(Dnum<T> g)  { return Dnum<T>(cosf(g.f), -sinf(g.f) * g.d); }
-template<class T> Dnum<T> Sinh(Dnum<T> g) { return Dnum<T>(sinh(g.f),  cosh(g.f) * g.d); }
-template<class T> Dnum<T> Cosh(Dnum<T> g) { return Dnum<T>(cosh(g.f),  sinh(g.f) * g.d); }
-template<class T> Dnum<T> Tan(Dnum<T> g)  { return Sin(g)  /  Cos(g); }
+template<class T> Dnum<T> Exp(Dnum<T> g) { return Dnum<T>(expf(g.f), expf(g.f) * g.d); }
+template<class T> Dnum<T> Sin(Dnum<T> g) { return Dnum<T>(sinf(g.f), cosf(g.f) * g.d); }
+template<class T> Dnum<T> Cos(Dnum<T> g) { return Dnum<T>(cosf(g.f), -sinf(g.f) * g.d); }
+template<class T> Dnum<T> Sinh(Dnum<T> g) { return Dnum<T>(sinh(g.f), cosh(g.f) * g.d); }
+template<class T> Dnum<T> Cosh(Dnum<T> g) { return Dnum<T>(cosh(g.f), sinh(g.f) * g.d); }
+template<class T> Dnum<T> Tan(Dnum<T> g) { return Sin(g) / Cos(g); }
 template<class T> Dnum<T> Tanh(Dnum<T> g) { return Sinh(g) / Cosh(g); }
-template<class T> Dnum<T> Log(Dnum<T> g)  { return Dnum<T>(logf(g.f), g.d / g.f); }
+template<class T> Dnum<T> Log(Dnum<T> g) { return Dnum<T>(logf(g.f), g.d / g.f); }
 template<class T> Dnum<T> Pow(Dnum<T> g, float n) {
 	return Dnum<T>(powf(g.f, n), n * powf(g.f, n - 1) * g.d);
 }
@@ -57,22 +57,22 @@ public:
 		asp = (float)windowWidth / windowHeight;
 		fov = 75.0f * (float)M_PI / 180.0f;
 		fp = 1; bp = 10;
-	} 
+	}
 	mat4 V() { // view matrix: translates the center to the origin
 		vec3 w = normalize(wEye - wLookat);
 		vec3 u = normalize(cross(wVup, w));
 		vec3 v = cross(w, u);
 		return TranslateMatrix(wEye * (-1)) * mat4(u.x, v.x, w.x, 0,
-			                                       u.y, v.y, w.y, 0,
-			                                       u.z, v.z, w.z, 0,
-			                                       0,   0,   0,   1);
+			u.y, v.y, w.y, 0,
+			u.z, v.z, w.z, 0,
+			0, 0, 0, 1);
 	}
 
 	mat4 P() { // projection matrix
-		return mat4(1 / (tan(fov / 2)*asp), 0,                0,                      0,
-			        0,                      1 / tan(fov / 2), 0,                      0,
-			        0,                      0,                -(fp + bp) / (bp - fp), -1,
-			        0,                      0,                -2 * fp*bp / (bp - fp),  0);
+		return mat4(1 / (tan(fov / 2) * asp), 0, 0, 0,
+			0, 1 / tan(fov / 2), 0, 0,
+			0, 0, -(fp + bp) / (bp - fp), -1,
+			0, 0, -2 * fp * bp / (bp - fp), 0);
 	}
 
 	void Animate(float t) { }
@@ -80,14 +80,14 @@ public:
 
 //---------------------------
 struct Material {
-//---------------------------
+	//---------------------------
 	vec3 kd, ks, ka;
 	float shininess;
 };
 
 //---------------------------
 struct Light {
-//---------------------------
+	//---------------------------
 	vec3 La, Le;
 	vec4 wLightPos;
 
@@ -96,7 +96,7 @@ struct Light {
 
 //---------------------------
 class CheckerBoardTexture : public Texture {
-//---------------------------
+	//---------------------------
 public:
 	CheckerBoardTexture(const int width = 0, const int height = 0) : Texture() {
 		std::vector<vec4> image(width * height);
@@ -108,29 +108,30 @@ public:
 	}
 };
 
-class BlueTexture : public Texture {
+class MyTexture : public Texture {
 public:
-	BlueTexture(const int width = 0, const int height = 0) : Texture() {
+	MyTexture(const int width = 0, const int height = 0) : Texture() {
 		std::vector<vec4> image(width * height);
 		for (int x = 0; x < width; x++) for (int y = 0; y < height; y++) {
 			image[y * width + x] = vec4(0, 0, 1, 1);
 		}
+		create(width, height, image, GL_NEAREST);
 	}
 };
 
 //---------------------------
 struct RenderState {
-//---------------------------
+	//---------------------------
 	mat4	           MVP, M, Minv, V, P;
-	Material *         material;
+	Material* material;
 	std::vector<Light> lights;
-	Texture *          texture;
+	Texture* texture;
 	vec3	           wEye;
 };
 
 //---------------------------
 class Shader : public GPUProgram {
-//---------------------------
+	//---------------------------
 public:
 	virtual void Bind(RenderState state) = 0;
 
@@ -150,8 +151,8 @@ public:
 
 //---------------------------
 class GouraudShader : public Shader {
-//---------------------------
-	const char * vertexSource = R"(
+	//---------------------------
+	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
 
@@ -195,7 +196,7 @@ class GouraudShader : public Shader {
 	)";
 
 	// fragment shader in GLSL
-	const char * fragmentSource = R"(
+	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
 
@@ -226,8 +227,8 @@ public:
 
 //---------------------------
 class PhongShader : public Shader {
-//---------------------------
-	const char * vertexSource = R"(
+	//---------------------------
+	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
 
@@ -264,7 +265,7 @@ class PhongShader : public Shader {
 	)";
 
 	// fragment shader in GLSL
-	const char * fragmentSource = R"(
+	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
 
@@ -331,8 +332,8 @@ public:
 
 //---------------------------
 class NPRShader : public Shader {
-//---------------------------
-	const char * vertexSource = R"(
+	//---------------------------
+	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
 
@@ -358,7 +359,7 @@ class NPRShader : public Shader {
 	)";
 
 	// fragment shader in GLSL
-	const char * fragmentSource = R"(
+	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
 
@@ -391,14 +392,14 @@ public:
 
 //---------------------------
 struct VertexData {
-//---------------------------
+	//---------------------------
 	vec3 position, normal;
 	vec2 texcoord;
 };
 
 //---------------------------
 class Geometry {
-//---------------------------
+	//---------------------------
 protected:
 	unsigned int vao, vbo;        // vertex array object
 public:
@@ -415,49 +416,6 @@ public:
 	}
 };
 
-mat4 transpose(mat4 mx) {
-	vec4 a = mx[0], b = mx[1], c = mx[2], d = mx[3];
-	return mat4(
-		a.x, b.x, c.x, d.x,
-		a.y, b.y, c.y, d.y,
-		a.z, b.z, c.z, d.z,
-		a.w, b.w, c.w, d.w
-	);
-}
-
-mat4 invRotationMx(mat4 mx) {
-	vec4 a = mx[0], b = mx[1], c = mx[2];
-	float a3b2c1 = a.z * b.y * c.x, a2b3c1 = a.y * b.z * c.x, a3b1c2 = a.z * b.x * c.y, a1b3c2 = a.x * b.z * c.y, a2b1c3 = a.y * b.x * c.z, a1b2c3 = a.x * b.y * c.z;
-	float denominator = a3b2c1 - a2b3c1 - a3b1c2 + a1b3c2 + a2b1c3 - a1b2c3;
-	return mat4(
-		vec4(
-			(b.z * c.y - b.y * c.z) / denominator,
-			(a.z * c.y - a.y * c.z) / -denominator,
-			(a.z * b.y - a.y * b.z) / denominator,
-			0.0f),
-		vec4(
-			(b.z * c.x - b.x * c.z) / -denominator,
-			(a.z * c.x - a.x * c.z) / denominator,
-			(a.z * b.x - a.x * b.z) / -denominator,
-			0.0f),
-		vec4(
-			(b.y * c.x - b.x * c.y) / denominator,
-			(a.y * c.x - a.x * c.y) / -denominator,
-			(a.y * b.x - a.x * b.y) / denominator,
-			0.0f),
-		vec4(0.0f, 0.0f, 0.0f, 1.0f)
-	);
-}
-
-vec3 rotate(vec3 vector, float angle, vec3 w) {
-	vec4 vec(vector.x, vector.y, vector.z, 0);
-	mat4 rotaMx = RotationMatrix(angle, w);
-	mat4 invRotaMx = invRotationMx(rotaMx);
-	mat4 transposeOfInvRotaMx = transpose(invRotaMx);
-	vec4 rotated = vec * invRotaMx * transposeOfInvRotaMx;
-	return vec3(rotated.x, rotated.y, rotated.z);
-}
-
 struct Triangle {
 	vec3 vertices[3];
 	vec3 normal, center;
@@ -469,8 +427,7 @@ struct Triangle {
 		vertices[1] = b;
 		vertices[2] = c;
 		center = (a + b + c) / 3.0f;
-		vec3 height = a - ((b + c) / 2.0f);
-		normal = (normalize(rotate(height, M_PI / 2.0f, b - c)));
+		normal = normalize(cross(b - a, c - a));
 	}
 };
 
@@ -482,30 +439,38 @@ class Tetrahedron : public Geometry {
 
 public:
 
-	Tetrahedron(Triangle &base, vec3 _top) {
-		vec3 top = _top;
-		triangles[0] = base;
-		triangles[1] = Triangle(top, base.vertices[0], base.vertices[1]);
-		triangles[2] = Triangle(top, base.vertices[1], base.vertices[2]);
-		triangles[3] = Triangle(top, base.vertices[2], base.vertices[0]);
+	Tetrahedron(Triangle& base, float _height) {
+		height = _height;
+		vec3 top = base.center + base.normal * height;
+		center = (base.vertices[0] + base.vertices[1] + base.vertices[2] + top) / 4.0f;
 
-		center = (base.vertices[0] + base.vertices[0] + base.vertices[0] + top) / 4.0f;
+		triangles[0] = base;
+		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
+		triangles[2] = Triangle(base.vertices[1], base.vertices[2], top);
+		triangles[3] = Triangle(base.vertices[2], base.vertices[0], top);
+
 		create();
 	}
 
-	//void modHeight(float diff) {
-	//	height += diff;
-	//	vec3 midBottom = (points[1] + points[2] + points[3]) / 3.0f;
-	//	vec3 upDir = normalize(points[0] - midBottom);
-	//	points[0] = midBottom + upDir * height;
-	//}
+	void modHeight(float diff) {
+		height += diff;
+		printf("New height: %3.2f", height);
+
+		vec3 top = triangles[0].center + triangles[0].normal * height;
+		triangles[1] = Triangle(triangles[0].vertices[0], triangles[0].vertices[1], top);
+		triangles[2] = Triangle(triangles[0].vertices[1], triangles[0].vertices[2], top);
+		triangles[3] = Triangle(triangles[0].vertices[2], triangles[0].vertices[0], top);
+		
+		create();
+		Draw();
+	}
 
 	void GenVertexData(Triangle triangle) {
 		for (vec3 vertex : triangle.vertices) {
 			VertexData currentVtxData;
 
 			currentVtxData.position = vertex;
-			currentVtxData.normal = normalize(triangle.center - center);
+			currentVtxData.normal = triangle.normal; //normalize(triangle.center - center);
 			currentVtxData.texcoord = vec2(1, 0);
 
 			vtxData.push_back(currentVtxData);
@@ -523,6 +488,15 @@ public:
 		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
 		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
 		// attribute array, components/attribute, component type, normalize?, stride, offset
+		/**
+		* index - Specifies the index of the generic vertex attribute to be modified.
+		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
+		* type
+		* normalized
+		* stride - Specifies the byte offset between consecutive generic vertex attributes.
+		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
+		* 
+		*/
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
@@ -530,13 +504,18 @@ public:
 
 	void Draw() {
 		glBindVertexArray(vao);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 6);
+		/**
+		* mode - Specifies what kind of primitives to render.
+		* first - Specifies the starting index in the enabled arrays.
+		* count - Specifies the number of indices to be rendered.
+		*/
+		glDrawArrays(GL_TRIANGLES, 0, 12);
 	}
 };
 
 //---------------------------
 class ParamSurface : public Geometry {
-//---------------------------
+	//---------------------------
 	unsigned int nVtxPerStrip, nStrips;
 public:
 	ParamSurface() { nVtxPerStrip = nStrips = 0; }
@@ -580,13 +559,13 @@ public:
 
 	void Draw() {
 		glBindVertexArray(vao);
-		for (unsigned int i = 0; i < nStrips; i++) glDrawArrays(GL_TRIANGLE_STRIP, i *  nVtxPerStrip, nVtxPerStrip);
+		for (unsigned int i = 0; i < nStrips; i++) glDrawArrays(GL_TRIANGLE_STRIP, i * nVtxPerStrip, nVtxPerStrip);
 	}
 };
 
 //---------------------------
 class Sphere : public ParamSurface {
-//---------------------------
+	//---------------------------
 public:
 	Sphere() { create(); }
 
@@ -602,7 +581,7 @@ public:
 
 //---------------------------
 class Tracticoid : public ParamSurface {
-//---------------------------
+	//---------------------------
 public:
 	Tracticoid() { create(); }
 
@@ -618,10 +597,10 @@ public:
 
 //---------------------------
 struct Object {
-//---------------------------
-	Shader*   shader;
+	//---------------------------
+	Shader* shader;
 	Material* material;
-	Texture*  texture;
+	Texture* texture;
 	Geometry* geometry;
 	vec3 scale, translation, rotationAxis;
 	float rotationAngle;
@@ -655,25 +634,26 @@ public:
 
 //---------------------------
 class Scene {
-//---------------------------
-	std::vector<Object *> objects;
+	//---------------------------
+	std::vector<Object*> objects;
 	Camera camera; // 3D camera
 	std::vector<Light> lights;
+
 public:
 	void Build() {
 		// Shaders
-		Shader * phongShader = new PhongShader();
-		Shader * gouraudShader = new GouraudShader();
-		Shader * nprShader = new NPRShader();
+		Shader* phongShader = new PhongShader();
+		Shader* gouraudShader = new GouraudShader();
+		Shader* nprShader = new NPRShader();
 
 		// Materials
-		Material * material0 = new Material;
+		Material* material0 = new Material;
 		material0->kd = vec3(0.6f, 0.4f, 0.2f);
 		material0->ks = vec3(4, 4, 4);
 		material0->ka = vec3(0.1f, 0.1f, 0.1f);
 		material0->shininess = 100;
 
-		Material * material1 = new Material;
+		Material* material1 = new Material;
 		material1->kd = vec3(0.8f, 0.6f, 0.4f);
 		material1->ks = vec3(0.3f, 0.3f, 0.3f);
 		material1->ka = vec3(0.2f, 0.2f, 0.2f);
@@ -687,23 +667,24 @@ public:
 		blueRough->ka = vec3(2, 2, 2);
 
 		// Textures
-		Texture * texture4x8 = new CheckerBoardTexture(4, 8);
-		Texture * texture15x20 = new CheckerBoardTexture(15, 20);
-		Texture* blueTexture = new BlueTexture(3, 2);
+		Texture* texture4x8 = new CheckerBoardTexture(4, 8);
+		Texture* texture15x20 = new CheckerBoardTexture(15, 20);
+		Texture* myTexture = new MyTexture(3, 2);
 
 		// Geometries
-		Geometry * sphere = new Sphere();
-		Geometry * tracticoid = new Tracticoid(); 
-		Geometry * tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1), vec3(1, 0, 0), vec3(-0.36603, 0, -0.36603)), vec3(0.21132, 1.1547, 0.21132));
-		
-		// Create objects by setting up their vertex data on the GPU
-		Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
-		sphereObject1->translation = vec3(-3, 3, 0);
-		sphereObject1->rotationAxis = vec3(0, 1, 1);
-		objects.push_back(sphereObject1);
+		Geometry* sphere = new Sphere();
+		Geometry* tracticoid = new Tracticoid();
+		Geometry* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2);
 
-		Object* tetra = new Object(phongShader, material1, texture15x20, tetrahedron);
+		// Create objects by setting up their vertex data on the GPU
+		//Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
+		//sphereObject1->translation = vec3(-3, 3, 0);
+		//sphereObject1->rotationAxis = vec3(0, 1, 1);
+		//objects.push_back(sphereObject1);
+
+		Object* tetra = new Object(phongShader, material1, myTexture, tetrahedron);
 		tetra->rotationAxis = vec3(1, 1, 0);
+		//tetra->translation = vec3(-2, -2, -2);
 		objects.push_back(tetra);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
@@ -738,13 +719,13 @@ public:
 		state.V = camera.V();
 		state.P = camera.P();
 		state.lights = lights;
-		for (Object * obj : objects) obj->Draw(state);
+		for (Object* obj : objects) obj->Draw(state);
 	}
 
 	void Animate(float tstart, float tend) {
 		camera.Animate(tend);
 		for (unsigned int i = 0; i < lights.size(); i++) { lights[i].Animate(tend); }
-		for (Object * obj : objects) obj->Animate(tstart, tend);
+		for (Object* obj : objects) obj->Animate(tstart, tend);
 	}
 };
 
