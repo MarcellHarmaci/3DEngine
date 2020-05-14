@@ -56,7 +56,7 @@ public:
 	Camera() {
 		asp = (float)windowWidth / windowHeight;
 		fov = 75.0f * (float)M_PI / 180.0f;
-		fp = 1; bp = 10;
+		fp = 1; bp = 100;
 	}
 	mat4 V() { // view matrix: translates the center to the origin
 		vec3 w = normalize(wEye - wLookat);
@@ -110,10 +110,10 @@ public:
 
 class MyTexture : public Texture {
 public:
-	MyTexture(const int width = 0, const int height = 0) : Texture() {
+	MyTexture(vec4 color, const int width = 0, const int height = 0) : Texture() {
 		std::vector<vec4> image(width * height);
 		for (int x = 0; x < width; x++) for (int y = 0; y < height; y++) {
-			image[y * width + x] = vec4(0, 0, 1, 1);
+			image[y * width + x] = color;
 		}
 		create(width, height, image, GL_NEAREST);
 	}
@@ -432,54 +432,37 @@ struct Triangle {
 };
 
 class Tetrahedron : public Geometry {
-	std::vector<VertexData> vtxData;	// vertices on the CPU
-	Triangle triangles[4];
-	float height;
-	vec3 center;
+	VertexData vtxData[12];	// vertices on the CPU
 
 public:
+	//void modHeight(float time) { create(); }
 
-	Tetrahedron(Triangle& base, float _height) {
-		height = _height;
+	Tetrahedron(Triangle& base, float height) {
+		create(base, height);
+	}
+
+	void GenVertexData(Triangle triangle, int triangleIdx) {
+		for (int vertexIdx = 0; vertexIdx < 3; vertexIdx++) {
+			VertexData currentVtxData;
+			currentVtxData.position = triangle.vertices[vertexIdx];
+			currentVtxData.normal = triangle.normal;
+			currentVtxData.texcoord = 0;
+
+			vtxData[triangleIdx * 3 + vertexIdx] = currentVtxData;
+		}
+	}
+
+	void create(Triangle& base, float height) {
 		vec3 top = base.center + base.normal * height;
-		center = (base.vertices[0] + base.vertices[1] + base.vertices[2] + top) / 4.0f;
 
+		Triangle triangles[4];
 		triangles[0] = base;
 		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
 		triangles[2] = Triangle(base.vertices[1], base.vertices[2], top);
 		triangles[3] = Triangle(base.vertices[2], base.vertices[0], top);
 
-		create();
-	}
-
-	void modHeight(float diff) {
-		height += diff;
-		printf("New height: %3.2f", height);
-
-		vec3 top = triangles[0].center + triangles[0].normal * height;
-		triangles[1] = Triangle(triangles[0].vertices[0], triangles[0].vertices[1], top);
-		triangles[2] = Triangle(triangles[0].vertices[1], triangles[0].vertices[2], top);
-		triangles[3] = Triangle(triangles[0].vertices[2], triangles[0].vertices[0], top);
-		
-		create();
-		Draw();
-	}
-
-	void GenVertexData(Triangle triangle) {
-		for (vec3 vertex : triangle.vertices) {
-			VertexData currentVtxData;
-
-			currentVtxData.position = vertex;
-			currentVtxData.normal = triangle.normal; //normalize(triangle.center - center);
-			currentVtxData.texcoord = vec2(1, 0);
-
-			vtxData.push_back(currentVtxData);
-		}
-	}
-
-	void create(int N = tessellationLevel, int M = tessellationLevel) {
-		for (int i = 0; i < 4; i++) {
-			GenVertexData(triangles[i]);
+		for (int triangleIdx = 0; triangleIdx < 4; triangleIdx++) {
+			GenVertexData(triangles[triangleIdx], triangleIdx);
 		}
 
 		glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_STATIC_DRAW);
@@ -495,7 +478,6 @@ public:
 		* normalized
 		* stride - Specifies the byte offset between consecutive generic vertex attributes.
 		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
-		* 
 		*/
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
@@ -573,8 +555,8 @@ public:
 		U = U * 2.0f * (float)M_PI;
 		V = V * (float)M_PI;
 		//Dnum2 wave = Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(3, vec2(0, 0)) * V) * Cos(Dnum2(3, vec2(0, 0)) * V);
-		X = Cos(U) * Sin(V) + Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(6, vec2(0, 0)) * V);
-		Y = Sin(U) * Sin(V) + Dnum2(0.2f, vec2(0, 0)) * Cos(Dnum2(6, vec2(0, 0)) * V);
+		X = Cos(U) * Sin(V); //+ Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(6, vec2(0, 0)) * V);
+		Y = Sin(U) * Sin(V); //+ Dnum2(0.2f, vec2(0, 0)) * Cos(Dnum2(6, vec2(0, 0)) * V);
 		Z = Cos(V);
 	}
 };
@@ -632,6 +614,34 @@ public:
 	virtual void Animate(float tstart, float tend) { rotationAngle = 0.8f * tend; }
 };
 
+struct TetraObject : public Object{
+	Tetrahedron* tetrahedron;
+	float height, constHeight;
+
+public:
+	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron, float _height) 
+		: Object(_shader, _material, _texture, _tetrahedron) {
+		constHeight = height = _height;
+	}
+
+	void Draw(RenderState state) {
+		mat4 M, Minv;
+		SetModelingTransform(M, Minv);
+		state.M = M;
+		state.Minv = Minv;
+		state.MVP = state.M * state.V * state.P;
+		state.material = material;
+		state.texture = texture;
+		shader->Bind(state);
+		geometry->Draw();
+	}
+
+	virtual void Animate(float tstart, float tend) {
+		height = constHeight + 2.0f * sinf(3.0f * tend);
+		tetrahedron = Tetrahedron(, height); // TODO base triangle
+		rotationAngle = 0.8f * tend; }
+};
+
 //---------------------------
 class Scene {
 	//---------------------------
@@ -669,12 +679,13 @@ public:
 		// Textures
 		Texture* texture4x8 = new CheckerBoardTexture(4, 8);
 		Texture* texture15x20 = new CheckerBoardTexture(15, 20);
-		Texture* myTexture = new MyTexture(3, 2);
+		Texture* myTexture = new MyTexture(vec4(0, 0, 1, 1), 1, 1);
 
 		// Geometries
 		Geometry* sphere = new Sphere();
 		Geometry* tracticoid = new Tracticoid();
-		Geometry* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2);
+		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2);
+		// Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2
 
 		// Create objects by setting up their vertex data on the GPU
 		//Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
@@ -682,9 +693,9 @@ public:
 		//sphereObject1->rotationAxis = vec3(0, 1, 1);
 		//objects.push_back(sphereObject1);
 
-		Object* tetra = new Object(phongShader, material1, myTexture, tetrahedron);
+		Object* tetra = new TetraObject(phongShader, material1, myTexture, tetrahedron);
 		tetra->rotationAxis = vec3(1, 1, 0);
-		//tetra->translation = vec3(-2, -2, -2);
+		tetra->translation = vec3(-2, -2, -3);
 		objects.push_back(tetra);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
