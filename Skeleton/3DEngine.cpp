@@ -56,7 +56,7 @@ public:
 	Camera() {
 		asp = (float)windowWidth / windowHeight;
 		fov = 75.0f * (float)M_PI / 180.0f;
-		fp = 1; bp = 100;
+		fp = 1; bp = 30;
 	}
 	mat4 V() { // view matrix: translates the center to the origin
 		vec3 w = normalize(wEye - wLookat);
@@ -416,85 +416,6 @@ public:
 	}
 };
 
-struct Triangle {
-	vec3 vertices[3];
-	vec3 normal, center;
-
-	Triangle() {}
-
-	Triangle(vec3 a, vec3 b, vec3 c) {
-		vertices[0] = a;
-		vertices[1] = b;
-		vertices[2] = c;
-		center = (a + b + c) / 3.0f;
-		normal = normalize(cross(b - a, c - a));
-	}
-};
-
-class Tetrahedron : public Geometry {
-	VertexData vtxData[12];	// vertices on the CPU
-
-public:
-	//void modHeight(float time) { create(); }
-
-	Tetrahedron(Triangle& base, float height) {
-		create(base, height);
-	}
-
-	void GenVertexData(Triangle triangle, int triangleIdx) {
-		for (int vertexIdx = 0; vertexIdx < 3; vertexIdx++) {
-			VertexData currentVtxData;
-			currentVtxData.position = triangle.vertices[vertexIdx];
-			currentVtxData.normal = triangle.normal;
-			currentVtxData.texcoord = 0;
-
-			vtxData[triangleIdx * 3 + vertexIdx] = currentVtxData;
-		}
-	}
-
-	void create(Triangle& base, float height) {
-		vec3 top = base.center + base.normal * height;
-
-		Triangle triangles[4];
-		triangles[0] = base;
-		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
-		triangles[2] = Triangle(base.vertices[1], base.vertices[2], top);
-		triangles[3] = Triangle(base.vertices[2], base.vertices[0], top);
-
-		for (int triangleIdx = 0; triangleIdx < 4; triangleIdx++) {
-			GenVertexData(triangles[triangleIdx], triangleIdx);
-		}
-
-		glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_STATIC_DRAW);
-		// Enable the vertex attribute arrays
-		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
-		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
-		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
-		// attribute array, components/attribute, component type, normalize?, stride, offset
-		/**
-		* index - Specifies the index of the generic vertex attribute to be modified.
-		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
-		* type
-		* normalized
-		* stride - Specifies the byte offset between consecutive generic vertex attributes.
-		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
-		*/
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
-	}
-
-	void Draw() {
-		glBindVertexArray(vao);
-		/**
-		* mode - Specifies what kind of primitives to render.
-		* first - Specifies the starting index in the enabled arrays.
-		* count - Specifies the number of indices to be rendered.
-		*/
-		glDrawArrays(GL_TRIANGLES, 0, 12);
-	}
-};
-
 //---------------------------
 class ParamSurface : public Geometry {
 	//---------------------------
@@ -578,8 +499,99 @@ public:
 };
 
 //---------------------------
+struct Triangle {
+//---------------------------
+	vec3 vertices[3];
+	vec3 normal, center;
+
+	Triangle() {}
+
+	Triangle(vec3 a, vec3 b, vec3 c) {
+		vertices[0] = a;
+		vertices[1] = b;
+		vertices[2] = c;
+		center = (a + b + c) / 3.0f;
+		normal = normalize(cross(b - a, c - a));
+	}
+};
+
+//---------------------------
+class Tetrahedron : public Geometry {
+//---------------------------
+	VertexData vtxData[12];	// vertices on the CPU
+
+public:
+	Triangle base;
+	float height;
+
+	Tetrahedron(Triangle& _base) {
+		base = _base;
+		height = sqrtf(2.0f / 3.0f) * length(base.vertices[0] - base.vertices[1]) / 2.0f;
+		create(base, height);
+	}
+
+	void GenVertexData(Triangle triangle, int triangleIdx) {
+		for (int vertexIdx = 0; vertexIdx < 3; vertexIdx++) {
+			VertexData currentVtxData;
+			currentVtxData.position = triangle.vertices[vertexIdx];
+			currentVtxData.normal = triangle.normal;
+			currentVtxData.texcoord = 0;
+
+			vtxData[triangleIdx * 3 + vertexIdx] = currentVtxData;
+		}
+	}
+
+	void create(Triangle& base, float height) {
+		vec3 top = base.center + base.normal * height;
+
+		Triangle triangles[4];
+		triangles[0] = base;
+		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
+		triangles[2] = Triangle(base.vertices[1], base.vertices[2], top);
+		triangles[3] = Triangle(base.vertices[2], base.vertices[0], top);
+
+		for (int triangleIdx = 0; triangleIdx < 4; triangleIdx++) {
+			GenVertexData(triangles[triangleIdx], triangleIdx);
+		}
+
+		glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_STATIC_DRAW);
+		// Enable the vertex attribute arrays
+		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
+		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
+		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
+		// attribute array, components/attribute, component type, normalize?, stride, offset
+		/**
+		* index - Specifies the index of the generic vertex attribute to be modified.
+		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
+		* type
+		* normalized
+		* stride - Specifies the byte offset between consecutive generic vertex attributes.
+		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
+		*/
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
+	}
+
+	void Draw() {
+		glBindVertexArray(vao);
+		/**
+		* mode - Specifies what kind of primitives to render.
+		* first - Specifies the starting index in the enabled arrays.
+		* count - Specifies the number of indices to be rendered.
+		*/
+		glDrawArrays(GL_TRIANGLES, 0, 12);
+	}
+
+	void animate(float newHeight) {
+		height = newHeight;
+		create(base, height);
+	}
+};
+
+//---------------------------
 struct Object {
-	//---------------------------
+//---------------------------
 	Shader* shader;
 	Material* material;
 	Texture* texture;
@@ -614,14 +626,18 @@ public:
 	virtual void Animate(float tstart, float tend) { rotationAngle = 0.8f * tend; }
 };
 
-struct TetraObject : public Object{
-	Tetrahedron* tetrahedron;
-	float height, constHeight;
+//---------------------------
+struct TetraObject : public Object {
+//---------------------------
+	Tetrahedron* tetra;
+	std::vector<Tetrahedron> spikes;
+	float height;
 
 public:
-	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron, float _height) 
+	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron) 
 		: Object(_shader, _material, _texture, _tetrahedron) {
-		constHeight = height = _height;
+		tetra = _tetrahedron;
+		height = tetra->height;
 	}
 
 	void Draw(RenderState state) {
@@ -637,9 +653,12 @@ public:
 	}
 
 	virtual void Animate(float tstart, float tend) {
-		height = constHeight + 2.0f * sinf(3.0f * tend);
-		tetrahedron = Tetrahedron(, height); // TODO base triangle
-		rotationAngle = 0.8f * tend; }
+		for (Tetrahedron spike : spikes) {
+			spike.animate(spike.height + spike.height * sinf(2.0f * tend));
+		}
+		tetra->animate(height + height * sinf(2.0f * tend));
+		rotationAngle = 0.8f * tend;
+	}
 };
 
 //---------------------------
@@ -684,7 +703,7 @@ public:
 		// Geometries
 		Geometry* sphere = new Sphere();
 		Geometry* tracticoid = new Tracticoid();
-		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2);
+		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1), vec3(1, 0, 0), vec3(-0.36603, 0, -0.36603))); //1.1547 * 2);
 		// Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2
 
 		// Create objects by setting up their vertex data on the GPU
@@ -694,8 +713,9 @@ public:
 		//objects.push_back(sphereObject1);
 
 		Object* tetra = new TetraObject(phongShader, material1, myTexture, tetrahedron);
-		tetra->rotationAxis = vec3(1, 1, 0);
-		tetra->translation = vec3(-2, -2, -3);
+		tetra->rotationAxis = vec3(0, 1, 0);
+		tetra->scale = vec3(2.0f, 2.0f, 2.0f);
+		tetra->translation = vec3(0, -2, 0);
 		objects.push_back(tetra);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
