@@ -523,6 +523,7 @@ class Tetrahedron : public Geometry {
 public:
 	Triangle base;
 	float height;
+	Triangle triangles[4];
 
 	Tetrahedron(Triangle& _base) {
 		base = _base;
@@ -544,7 +545,6 @@ public:
 	void create(Triangle& base, float height) {
 		vec3 top = base.center + base.normal * height;
 
-		Triangle triangles[4];
 		triangles[0] = base;
 		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
 		triangles[2] = Triangle(base.vertices[1], base.vertices[2], top);
@@ -628,16 +628,20 @@ public:
 
 //---------------------------
 struct TetraObject : public Object {
-//---------------------------
+	//---------------------------
 	Tetrahedron* tetra;
-	std::vector<Tetrahedron> spikes;
-	float height;
+	float height, constHeight;
+	bool doesSting = true;
 
 public:
 	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron) 
 		: Object(_shader, _material, _texture, _tetrahedron) {
 		tetra = _tetrahedron;
-		height = tetra->height;
+		constHeight = height = tetra->height;
+	}
+
+	void setSting(bool _doesSting) {
+		doesSting = _doesSting;
 	}
 
 	void Draw(RenderState state) {
@@ -653,11 +657,59 @@ public:
 	}
 
 	virtual void Animate(float tstart, float tend) {
-		for (Tetrahedron spike : spikes) {
-			spike.animate(spike.height + spike.height * sinf(2.0f * tend));
+		//for (Tetrahedron* spike : spikes) {
+		//	spike->animate(spike->height + spike->height * sinf(2.0f * tend));
+		//}
+		if (doesSting)
+			tetra->animate(constHeight + constHeight * sinf(2.0f * tend));
+		//rotationAngle = 0.8f * tend;
+	}
+};
+
+struct AntiBody : public Object {
+	Tetrahedron* base;
+	TetraObject* baseObject;
+	std::vector<Tetrahedron*> spikes;
+	std::vector<TetraObject*> spikeObjects;
+
+public:
+	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _base)
+		: Object(_shader, _material, _texture, _base) {
+		baseObject = new TetraObject(_shader, _material, _texture, _base);
+		//baseObject->setSting(false);
+		base = _base;
+
+		for (Triangle side : base->triangles) {
+			vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
+			vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
+			vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
+			spikes.push_back(new Tetrahedron(Triangle(h1, h2, h3)));
 		}
-		tetra->animate(height + height * sinf(2.0f * tend));
-		rotationAngle = 0.8f * tend;
+		for (Tetrahedron* spike : spikes) {
+			spikeObjects.push_back(new TetraObject(_shader, _material, _texture, spike));
+		}
+	}
+
+	void Draw(RenderState state) {
+		mat4 M, Minv;
+		SetModelingTransform(M, Minv);
+		state.M = M;
+		state.Minv = Minv;
+		state.MVP = state.M * state.V * state.P;
+		state.material = material;
+		state.texture = texture;
+		shader->Bind(state);
+		
+		baseObject->Draw(state);	// TODO - uncomment this
+		//for (TetraObject* spike : spikeObjects) {
+		//	spike->Draw(state);
+		//}
+	}
+
+	virtual void Animate(float tstart, float tend) {
+		baseObject->Animate(tstart, tend);
+		//for (TetraObject* spike : spikeObjects)
+		//	spike->Animate(tstart, tend);
 	}
 };
 
@@ -703,7 +755,7 @@ public:
 		// Geometries
 		Geometry* sphere = new Sphere();
 		Geometry* tracticoid = new Tracticoid();
-		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1), vec3(1, 0, 0), vec3(-0.36603, 0, -0.36603))); //1.1547 * 2);
+		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1), vec3(1, 0, 0), vec3(-0.36603, 0, -0.36603)));
 		// Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2
 
 		// Create objects by setting up their vertex data on the GPU
@@ -712,11 +764,11 @@ public:
 		//sphereObject1->rotationAxis = vec3(0, 1, 1);
 		//objects.push_back(sphereObject1);
 
-		Object* tetra = new TetraObject(phongShader, material1, myTexture, tetrahedron);
-		tetra->rotationAxis = vec3(0, 1, 0);
-		tetra->scale = vec3(2.0f, 2.0f, 2.0f);
-		tetra->translation = vec3(0, -2, 0);
-		objects.push_back(tetra);
+		AntiBody* antiBody = new AntiBody(phongShader, material1, myTexture, tetrahedron);
+		//antiBody->rotationAxis = vec3(0, 1, 0);
+		antiBody->scale = vec3(2.0f, 2.0f, 2.0f);
+		antiBody->translation = vec3(0, -2, 0);
+		objects.push_back(antiBody);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
 		//tracticoidObject1->translation = vec3(0, 3, 0);
