@@ -515,6 +515,8 @@ struct Triangle {
 	}
 };
 
+std::vector<VertexData> megaVtxData;
+
 //---------------------------
 class Tetrahedron : public Geometry {
 //---------------------------
@@ -540,10 +542,13 @@ public:
 			currentVtxData.texcoord = 0;
 
 			vtxData[triangleIdx * 3 + vertexIdx] = currentVtxData;
+			megaVtxData.push_back(currentVtxData);
 		}
 	}
 
-	void create(Triangle& base, float height) {
+	void create(Triangle& _base, float _height) {
+		base = _base;
+		height = _height;
 		vec3 top = base.center + base.normal * height;
 		center = (base.vertices[0] + base.vertices[1] + base.vertices[2] + top) / 4.0f;
 
@@ -556,11 +561,11 @@ public:
 			GenVertexData(triangles[triangleIdx], triangleIdx);
 		}
 
-		glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_STATIC_DRAW);
-		// Enable the vertex attribute arrays
-		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
-		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
-		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
+		//glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_DYNAMIC_DRAW);
+		//// Enable the vertex attribute arrays
+		//glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
+		//glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
+		//glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
 		
 		/**
 		* index - Specifies the index of the generic vertex attribute to be modified.
@@ -570,24 +575,27 @@ public:
 		* stride - Specifies the byte offset between consecutive generic vertex attributes.
 		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
 		*/
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
+		//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+		//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
+		//glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
 	}
 
 	void Draw() {
-		glBindVertexArray(vao);
+		//glBindVertexArray(vao);
 		/**
 		* mode - Specifies what kind of primitives to render.
 		* first - Specifies the starting index in the enabled arrays.
 		* count - Specifies the number of indices to be rendered.
 		*/
-		glDrawArrays(GL_TRIANGLES, 0, 12);
+		//glDrawArrays(GL_TRIANGLES, 0, 12);
 	}
 
-	void animate(float newHeight) {
-		height = newHeight;
-		create(base, height);
+	void animate(float _height) {
+		create(base, _height);
+	}
+
+	void animate(Triangle _base, float _height) {
+		create(_base, _height);
 	}
 };
 
@@ -650,44 +658,83 @@ public:
 		doesSting = _doesSting;
 	}
 
-	virtual void Animate(float tstart, float tend) {
-		if (doesSting)
-			tetra->animate(height + height * sinf(2.0f * tend));
+	virtual void Animate(float tstart, float tend, Triangle base) {
+		if (doesSting) {
+			tetra->animate(base, height + height * sinf(2.0f * tend));
+		}
+		else
+			tetra->animate(base, height);
 	}
 };
 
 //---------------------------
 struct AntiBody : public Object {
 //---------------------------
+	Tetrahedron* base;
 	TetraObject* baseObject;
 	std::vector<Tetrahedron*> spikes;
 	std::vector<TetraObject*> spikeObjects;
+	std::vector<TetraObject*> babySpikeObjects;
+
+	unsigned int vao, vbo;        // vertex array object
 
 public:
-	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* base)
-		: Object(_shader, _material, _texture, base) {
+	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _base)
+		: Object(_shader, _material, _texture, _base) {
+
+		glGenVertexArrays(1, &vao);
+		glBindVertexArray(vao);
+		glGenBuffers(1, &vbo); // Generate 1 vertex buffer object
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+		base = _base;
 		base->animate(base->height * 2.0f);
-		vec3 center = base->center;
 
 		baseObject = new TetraObject(_shader, _material, _texture, base);
 		baseObject->doesSting = false;
 
+		genSpikes();
+	}
+
+	void genSpikes() {
 		for (Triangle side : base->triangles) {
 			vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
 			vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
 			vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
-		
-			vec3 outDir = normalize(side.center - center);
+
+			vec3 outDir = normalize(side.center - base->center);
 			float dotProd = dot(side.normal, outDir);
 			float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
-			
+
 			Tetrahedron* spike;
 			if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
 				spike = new Tetrahedron(Triangle(h3, h2, h1));
 			else
 				spike = new Tetrahedron(Triangle(h1, h2, h3));
 
-			spikeObjects.push_back(new TetraObject(_shader, _material, _texture, spike));
+			spikes.push_back(spike);
+			spikeObjects.push_back(new TetraObject(shader, material, texture, spike));
+		}
+
+		for (Tetrahedron* spike : spikes) {
+			for (Triangle side : spike->triangles) {
+				vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
+				vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
+				vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
+
+
+				vec3 outDir = normalize(side.center - spike->center);
+				float dotProd = dot(side.normal, outDir);
+				float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
+
+				Tetrahedron* babySpike;
+				if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
+					babySpike = new Tetrahedron(Triangle(h3, h2, h1));
+				else
+					babySpike = new Tetrahedron(Triangle(h1, h2, h3));
+
+				babySpikeObjects.push_back(new TetraObject(shader, material, texture, babySpike));
+			}
 		}
 	}
 
@@ -701,18 +748,71 @@ public:
 		state.texture = texture;
 		shader->Bind(state);
 		
+		megaVtxData.clear();
+
 		baseObject->Draw(state);
 		for (TetraObject* spike : spikeObjects) {
 			spike->Draw(state);
 		}
+
+		glBufferData(GL_ARRAY_BUFFER, 12 * 21 * sizeof(VertexData), &megaVtxData[0], GL_DYNAMIC_DRAW);
+		// Enable the vertex attribute arrays
+		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
+		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
+		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
+
+		/**
+		* index - Specifies the index of the generic vertex attribute to be modified.
+		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
+		* type
+		* normalized
+		* stride - Specifies the byte offset between consecutive generic vertex attributes.
+		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
+		*/
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
+
+		glBindVertexArray(vao);
+		/**
+		* mode - Specifies what kind of primitives to render.
+		* first - Specifies the starting index in the enabled arrays.
+		* count - Specifies the number of indices to be rendered.
+		*/
+		glDrawArrays(GL_TRIANGLES, 0, 12 * 21);
 	}
 
 	virtual void Animate(float tstart, float tend) {
 		rotationAngle = 0.8f * tend;
+		megaVtxData.clear();
 
 		baseObject->Animate(tstart, tend);
-		for (TetraObject* spike : spikeObjects)
-			spike->Animate(tstart, tend);
+		for (TetraObject* spikeObject : spikeObjects)
+			spikeObject->Animate(tstart, tend);
+
+		babySpikeObjects.clear();
+		for (Tetrahedron* spike : spikes) {
+			for (Triangle side : spike->triangles) {
+				vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
+				vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
+				vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
+
+
+				vec3 outDir = normalize(side.center - spike->center);
+				float dotProd = dot(side.normal, outDir);
+				float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
+
+				Tetrahedron* babySpike;
+				if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
+					babySpike = new Tetrahedron(Triangle(h3, h2, h1));
+				else
+					babySpike = new Tetrahedron(Triangle(h1, h2, h3));
+
+				babySpikeObjects.push_back(new TetraObject(shader, material, texture, babySpike));
+			}
+		}
+		for (TetraObject* babySpikeObject : babySpikeObjects)
+			babySpikeObject->Animate(tstart, tend);
 	}
 };
 
@@ -784,15 +884,15 @@ public:
 
 		// Lights
 		lights.resize(3);
-		lights[0].wLightPos = vec4(5, 5, 4, 0);		// ideal top -> directional light source
+		lights[0].wLightPos = vec4(5, 5, 4, 1);		// ideal top -> directional light source
 		lights[0].La = vec3(0.1f, 0.1f, 1);
 		lights[0].Le = vec3(3, 0, 0);
 
-		lights[1].wLightPos = vec4(5, 10, 20, 0);	// ideal top -> directional light source
+		lights[1].wLightPos = vec4(5, 10, 20, 1);	// ideal top -> directional light source
 		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
 		lights[1].Le = vec3(0, 3, 0);
 
-		lights[2].wLightPos = vec4(-5, 5, 5, 0);	// ideal top -> directional light source
+		lights[2].wLightPos = vec4(-5, 5, 5, 1);	// ideal top -> directional light source
 		lights[2].La = vec3(0.1f, 0.1f, 0.1f);
 		lights[2].Le = vec3(0, 0, 3);
 	}
