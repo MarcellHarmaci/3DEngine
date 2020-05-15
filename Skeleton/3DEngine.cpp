@@ -522,8 +522,9 @@ class Tetrahedron : public Geometry {
 
 public:
 	Triangle base;
-	float height;
 	Triangle triangles[4];
+	float height;
+	vec3 center;
 
 	Tetrahedron(Triangle& _base) {
 		base = _base;
@@ -544,6 +545,7 @@ public:
 
 	void create(Triangle& base, float height) {
 		vec3 top = base.center + base.normal * height;
+		center = (base.vertices[0] + base.vertices[1] + base.vertices[2] + top) / 4.0f;
 
 		triangles[0] = base;
 		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
@@ -629,11 +631,11 @@ public:
 //---------------------------
 struct TetraObject : public Object {
 //---------------------------
+public:
 	Tetrahedron* tetra;
 	float height;
 	bool doesSting = true;
 
-public:
 	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron)
 		: Object(_shader, _material, _texture, _tetrahedron) {
 		tetra = _tetrahedron;
@@ -665,19 +667,28 @@ public:
 	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* base)
 		: Object(_shader, _material, _texture, base) {
 		base->animate(base->height * 2.0f);
-		baseObject = new TetraObject(_shader, _material, _texture, base);
-		baseObject->setSting(false);
+		vec3 center = base->center;
 
-		//for (Triangle side : base->triangles) {
-		//	vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
-		//	vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
-		//	vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
-		//	spikes.push_back(new Tetrahedron(Triangle(h1, h2, h3)));
-		//	spikeObjects.push_back(new TetraObject(
-		//		_shader, _material, _texture,
-		//		new Tetrahedron(Triangle(h1, h2, h3))
-		//	));
-		//}
+		baseObject = new TetraObject(_shader, _material, _texture, base);
+		baseObject->doesSting = false;
+
+		for (Triangle side : base->triangles) {
+			vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
+			vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
+			vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
+		
+			vec3 outDir = normalize(side.center - center);
+			float dotProd = dot(side.normal, outDir);
+			float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
+			
+			Tetrahedron* spike;
+			if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
+				spike = new Tetrahedron(Triangle(h3, h2, h1));
+			else
+				spike = new Tetrahedron(Triangle(h1, h2, h3));
+
+			spikeObjects.push_back(new TetraObject(_shader, _material, _texture, spike));
+		}
 	}
 
 	void Draw(RenderState state) {
@@ -691,16 +702,17 @@ public:
 		shader->Bind(state);
 		
 		baseObject->Draw(state);
-		//for (TetraObject* spike : spikeObjects) {
-		//	spike->Draw(state);
-		//}
+		for (TetraObject* spike : spikeObjects) {
+			spike->Draw(state);
+		}
 	}
 
 	virtual void Animate(float tstart, float tend) {
 		rotationAngle = 0.8f * tend;
+
 		baseObject->Animate(tstart, tend);
-		//for (TetraObject* spike : spikeObjects)
-		//	spike->Animate(tstart, tend);
+		for (TetraObject* spike : spikeObjects)
+			spike->Animate(tstart, tend);
 	}
 };
 
@@ -756,7 +768,7 @@ public:
 		//objects.push_back(sphereObject1);
 
 		AntiBody* antiBody = new AntiBody(phongShader, material1, myTexture, tetrahedron);
-		antiBody->rotationAxis = vec3(0, 1, 0);
+		antiBody->rotationAxis = vec3(1, 1, 0);
 		objects.push_back(antiBody);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
