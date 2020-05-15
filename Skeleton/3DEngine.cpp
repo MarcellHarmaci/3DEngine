@@ -559,7 +559,7 @@ public:
 		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
 		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
 		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
-		// attribute array, components/attribute, component type, normalize?, stride, offset
+		
 		/**
 		* index - Specifies the index of the generic vertex attribute to be modified.
 		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
@@ -611,7 +611,7 @@ public:
 		Minv = TranslateMatrix(-translation) * RotationMatrix(-rotationAngle, rotationAxis) * ScaleMatrix(vec3(1 / scale.x, 1 / scale.y, 1 / scale.z));
 	}
 
-	void Draw(RenderState state) {
+	virtual void Draw(RenderState state) {
 		mat4 M, Minv;
 		SetModelingTransform(M, Minv);
 		state.M = M;
@@ -628,66 +628,56 @@ public:
 
 //---------------------------
 struct TetraObject : public Object {
-	//---------------------------
+//---------------------------
 	Tetrahedron* tetra;
-	float height, constHeight;
+	float height;
 	bool doesSting = true;
 
 public:
-	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron) 
+	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron)
 		: Object(_shader, _material, _texture, _tetrahedron) {
 		tetra = _tetrahedron;
-		constHeight = height = tetra->height;
+		height = tetra->height;
+	}
+
+	void Draw(RenderState state) {
+		geometry->Draw();
 	}
 
 	void setSting(bool _doesSting) {
 		doesSting = _doesSting;
 	}
 
-	void Draw(RenderState state) {
-		mat4 M, Minv;
-		SetModelingTransform(M, Minv);
-		state.M = M;
-		state.Minv = Minv;
-		state.MVP = state.M * state.V * state.P;
-		state.material = material;
-		state.texture = texture;
-		shader->Bind(state);
-		geometry->Draw();
-	}
-
 	virtual void Animate(float tstart, float tend) {
-		//for (Tetrahedron* spike : spikes) {
-		//	spike->animate(spike->height + spike->height * sinf(2.0f * tend));
-		//}
 		if (doesSting)
-			tetra->animate(constHeight + constHeight * sinf(2.0f * tend));
-		//rotationAngle = 0.8f * tend;
+			tetra->animate(height + height * sinf(2.0f * tend));
 	}
 };
 
+//---------------------------
 struct AntiBody : public Object {
-	Tetrahedron* base;
+//---------------------------
 	TetraObject* baseObject;
 	std::vector<Tetrahedron*> spikes;
 	std::vector<TetraObject*> spikeObjects;
 
 public:
-	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _base)
-		: Object(_shader, _material, _texture, _base) {
-		baseObject = new TetraObject(_shader, _material, _texture, _base);
-		//baseObject->setSting(false);
-		base = _base;
+	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* base)
+		: Object(_shader, _material, _texture, base) {
+		base->animate(base->height * 2.0f);
+		baseObject = new TetraObject(_shader, _material, _texture, base);
+		baseObject->setSting(false);
 
-		for (Triangle side : base->triangles) {
-			vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
-			vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
-			vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
-			spikes.push_back(new Tetrahedron(Triangle(h1, h2, h3)));
-		}
-		for (Tetrahedron* spike : spikes) {
-			spikeObjects.push_back(new TetraObject(_shader, _material, _texture, spike));
-		}
+		//for (Triangle side : base->triangles) {
+		//	vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
+		//	vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
+		//	vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
+		//	spikes.push_back(new Tetrahedron(Triangle(h1, h2, h3)));
+		//	spikeObjects.push_back(new TetraObject(
+		//		_shader, _material, _texture,
+		//		new Tetrahedron(Triangle(h1, h2, h3))
+		//	));
+		//}
 	}
 
 	void Draw(RenderState state) {
@@ -700,13 +690,14 @@ public:
 		state.texture = texture;
 		shader->Bind(state);
 		
-		baseObject->Draw(state);	// TODO - uncomment this
+		baseObject->Draw(state);
 		//for (TetraObject* spike : spikeObjects) {
 		//	spike->Draw(state);
 		//}
 	}
 
 	virtual void Animate(float tstart, float tend) {
+		rotationAngle = 0.8f * tend;
 		baseObject->Animate(tstart, tend);
 		//for (TetraObject* spike : spikeObjects)
 		//	spike->Animate(tstart, tend);
@@ -715,7 +706,7 @@ public:
 
 //---------------------------
 class Scene {
-	//---------------------------
+//---------------------------
 	std::vector<Object*> objects;
 	Camera camera; // 3D camera
 	std::vector<Light> lights;
@@ -755,7 +746,7 @@ public:
 		// Geometries
 		Geometry* sphere = new Sphere();
 		Geometry* tracticoid = new Tracticoid();
-		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, 0, 1), vec3(1, 0, 0), vec3(-0.36603, 0, -0.36603)));
+		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, -2.0f/3.0f, 1)*3, vec3(1, -2.0f/3.0f, 0)*3, vec3(-0.36603, -2.0f/3.0f, -0.36603)*3));
 		// Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2
 
 		// Create objects by setting up their vertex data on the GPU
@@ -765,9 +756,7 @@ public:
 		//objects.push_back(sphereObject1);
 
 		AntiBody* antiBody = new AntiBody(phongShader, material1, myTexture, tetrahedron);
-		//antiBody->rotationAxis = vec3(0, 1, 0);
-		antiBody->scale = vec3(2.0f, 2.0f, 2.0f);
-		antiBody->translation = vec3(0, -2, 0);
+		antiBody->rotationAxis = vec3(0, 1, 0);
 		objects.push_back(antiBody);
 
 		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
