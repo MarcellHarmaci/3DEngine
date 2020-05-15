@@ -1,4 +1,4 @@
-//=============================================================================================
+ï»¿//=============================================================================================
 // Computer Graphics Sample Program: 3D engine-let
 // Shader: Gouraud, Phong, NPR
 // Material: diffuse + Phong-Blinn
@@ -155,7 +155,6 @@ class GouraudShader : public Shader {
 	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
-
 		struct Light {
 			vec3 La, Le;
 			vec4 wLightPos;
@@ -165,18 +164,14 @@ class GouraudShader : public Shader {
 			vec3 kd, ks, ka;
 			float shininess;
 		};
-
 		uniform mat4  MVP, M, Minv;  // MVP, Model, Model-inverse
 		uniform Light[8] lights;     // light source direction 
 		uniform int   nLights;		 // number of light sources
 		uniform vec3  wEye;          // pos of eye
 		uniform Material  material;  // diffuse, specular, ambient ref
-
 		layout(location = 0) in vec3  vtxPos;            // pos in modeling space
 		layout(location = 1) in vec3  vtxNorm;      	 // normal in modeling space
-
 		out vec3 radiance;		    // reflected radiance
-
 		void main() {
 			gl_Position = vec4(vtxPos, 1) * MVP; // to NDC
 			// radiance computation
@@ -184,7 +179,6 @@ class GouraudShader : public Shader {
 			vec3 V = normalize(wEye * wPos.w - wPos.xyz);
 			vec3 N = normalize((Minv * vec4(vtxNorm, 0)).xyz);
 			if (dot(N, V) < 0) N = -N;	// prepare for one-sided surfaces like Mobius or Klein
-
 			radiance = vec3(0, 0, 0);
 			for(int i = 0; i < nLights; i++) {
 				vec3 L = normalize(lights[i].wLightPos.xyz * wPos.w - wPos.xyz * lights[i].wLightPos.w);
@@ -199,10 +193,8 @@ class GouraudShader : public Shader {
 	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
-
 		in  vec3 radiance;      // interpolated radiance
 		out vec4 fragmentColor; // output goes to frame buffer
-
 		void main() {
 			fragmentColor = vec4(radiance, 1);
 		}
@@ -231,26 +223,21 @@ class PhongShader : public Shader {
 	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
-
 		struct Light {
 			vec3 La, Le;
 			vec4 wLightPos;
 		};
-
 		uniform mat4  MVP, M, Minv; // MVP, Model, Model-inverse
 		uniform Light[8] lights;    // light sources 
 		uniform int   nLights;
 		uniform vec3  wEye;         // pos of eye
-
 		layout(location = 0) in vec3  vtxPos;            // pos in modeling space
 		layout(location = 1) in vec3  vtxNorm;      	 // normal in modeling space
 		layout(location = 2) in vec2  vtxUV;
-
 		out vec3 wNormal;		    // normal in world space
 		out vec3 wView;             // view in world space
 		out vec3 wLight[8];		    // light dir in world space
 		out vec2 texcoord;
-
 		void main() {
 			gl_Position = vec4(vtxPos, 1) * MVP; // to NDC
 			// vectors for radiance computation
@@ -268,29 +255,24 @@ class PhongShader : public Shader {
 	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
-
 		struct Light {
 			vec3 La, Le;
 			vec4 wLightPos;
 		};
-
 		struct Material {
 			vec3 kd, ks, ka;
 			float shininess;
 		};
-
 		uniform Material material;
 		uniform Light[8] lights;    // light sources 
 		uniform int   nLights;
 		uniform sampler2D diffuseTexture;
-
 		in  vec3 wNormal;       // interpolated world sp normal
 		in  vec3 wView;         // interpolated world sp view
 		in  vec3 wLight[8];     // interpolated world sp illum dir
 		in  vec2 texcoord;
 		
         out vec4 fragmentColor; // output goes to frame buffer
-
 		void main() {
 			vec3 N = normalize(wNormal);
 			vec3 V = normalize(wView); 
@@ -298,7 +280,6 @@ class PhongShader : public Shader {
 			vec3 texColor = texture(diffuseTexture, texcoord).rgb;
 			vec3 ka = material.ka * texColor;
 			vec3 kd = material.kd * texColor;
-
 			vec3 radiance = vec3(0, 0, 0);
 			for(int i = 0; i < nLights; i++) {
 				vec3 L = normalize(wLight[i]);
@@ -336,18 +317,14 @@ class NPRShader : public Shader {
 	const char* vertexSource = R"(
 		#version 330
 		precision highp float;
-
 		uniform mat4  MVP, M, Minv; // MVP, Model, Model-inverse
 		uniform	vec4  wLightPos;
 		uniform vec3  wEye;         // pos of eye
-
 		layout(location = 0) in vec3  vtxPos;            // pos in modeling space
 		layout(location = 1) in vec3  vtxNorm;      	 // normal in modeling space
 		layout(location = 2) in vec2  vtxUV;
-
 		out vec3 wNormal, wView, wLight;				// in world space
 		out vec2 texcoord;
-
 		void main() {
 		   gl_Position = vec4(vtxPos, 1) * MVP; // to NDC
 		   vec4 wPos = vec4(vtxPos, 1) * M;
@@ -362,13 +339,10 @@ class NPRShader : public Shader {
 	const char* fragmentSource = R"(
 		#version 330
 		precision highp float;
-
 		uniform sampler2D diffuseTexture;
-
 		in  vec3 wNormal, wView, wLight;	// interpolated
 		in  vec2 texcoord;
 		out vec4 fragmentColor;    			// output goes to frame buffer
-
 		void main() {
 		   vec3 N = normalize(wNormal), V = normalize(wView), L = normalize(wLight);
 		   float y = (dot(N, L) > 0.5) ? 1 : 0.5;
@@ -409,7 +383,7 @@ public:
 		glGenBuffers(1, &vbo); // Generate 1 vertex buffer object
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	}
-	virtual void Draw() = 0;
+	void Draw() {}
 	~Geometry() {
 		glDeleteBuffers(1, &vbo);
 		glDeleteVertexArrays(1, &vao);
@@ -475,9 +449,8 @@ public:
 	void eval(Dnum2& U, Dnum2& V, Dnum2& X, Dnum2& Y, Dnum2& Z) {
 		U = U * 2.0f * (float)M_PI;
 		V = V * (float)M_PI;
-		//Dnum2 wave = Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(3, vec2(0, 0)) * V) * Cos(Dnum2(3, vec2(0, 0)) * V);
-		X = Cos(U) * Sin(V); //+ Dnum2(0.2f, vec2(0, 0)) * Sin(Dnum2(6, vec2(0, 0)) * V);
-		Y = Sin(U) * Sin(V); //+ Dnum2(0.2f, vec2(0, 0)) * Cos(Dnum2(6, vec2(0, 0)) * V);
+		X = Cos(U) * Sin(V);
+		Y = Sin(U) * Sin(V);
 		Z = Cos(V);
 	}
 };
@@ -500,7 +473,7 @@ public:
 
 //---------------------------
 struct Triangle {
-//---------------------------
+	//---------------------------
 	vec3 vertices[3];
 	vec3 normal, center;
 
@@ -515,22 +488,20 @@ struct Triangle {
 	}
 };
 
-std::vector<VertexData> megaVtxData;
+std::vector<VertexData> allVtxData;
 
 //---------------------------
 class Tetrahedron : public Geometry {
-//---------------------------
-	VertexData vtxData[12];	// vertices on the CPU
-
+	//---------------------------
 public:
-	Triangle base;
+	Triangle* base;
 	Triangle triangles[4];
 	float height;
 	vec3 center;
 
-	Tetrahedron(Triangle& _base) {
+	Tetrahedron(Triangle* _base) {
 		base = _base;
-		height = sqrtf(2.0f / 3.0f) * length(base.vertices[0] - base.vertices[1]) / 2.0f;
+		height = sqrtf(2.0f / 3.0f) * length(base->vertices[0] - base->vertices[1]) * 0.7f;
 		create(base, height);
 	}
 
@@ -541,67 +512,33 @@ public:
 			currentVtxData.normal = triangle.normal;
 			currentVtxData.texcoord = 0;
 
-			vtxData[triangleIdx * 3 + vertexIdx] = currentVtxData;
-			megaVtxData.push_back(currentVtxData);
+			allVtxData.push_back(currentVtxData);
 		}
 	}
 
-	void create(Triangle& _base, float _height) {
-		base = _base;
-		height = _height;
-		vec3 top = base.center + base.normal * height;
-		center = (base.vertices[0] + base.vertices[1] + base.vertices[2] + top) / 4.0f;
+	void create(Triangle* base, float height) {
+		vec3 top = base->center + base->normal * height;
+		center = (base->vertices[0] + base->vertices[1] + base->vertices[2] + top) / 4.0f;
 
-		triangles[0] = base;
-		triangles[1] = Triangle(base.vertices[0], base.vertices[1], top);
-		triangles[2] = Triangle(base.vertices[1], base.vertices[2], top);
-		triangles[3] = Triangle(base.vertices[2], base.vertices[0], top);
+		triangles[0] = *base;
+		triangles[1] = Triangle(base->vertices[0], base->vertices[1], top);
+		triangles[2] = Triangle(base->vertices[1], base->vertices[2], top);
+		triangles[3] = Triangle(base->vertices[2], base->vertices[0], top);
 
 		for (int triangleIdx = 0; triangleIdx < 4; triangleIdx++) {
 			GenVertexData(triangles[triangleIdx], triangleIdx);
 		}
-
-		//glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(VertexData), &vtxData[0], GL_DYNAMIC_DRAW);
-		//// Enable the vertex attribute arrays
-		//glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
-		//glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
-		//glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
-		
-		/**
-		* index - Specifies the index of the generic vertex attribute to be modified.
-		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
-		* type
-		* normalized
-		* stride - Specifies the byte offset between consecutive generic vertex attributes.
-		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
-		*/
-		//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
-		//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
-		//glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
 	}
 
-	void Draw() {
-		//glBindVertexArray(vao);
-		/**
-		* mode - Specifies what kind of primitives to render.
-		* first - Specifies the starting index in the enabled arrays.
-		* count - Specifies the number of indices to be rendered.
-		*/
-		//glDrawArrays(GL_TRIANGLES, 0, 12);
-	}
-
-	void animate(float _height) {
-		create(base, _height);
-	}
-
-	void animate(Triangle _base, float _height) {
-		create(_base, _height);
+	void animate(float newHeight) {
+		height = newHeight;
+		create(base, height);
 	}
 };
 
 //---------------------------
 struct Object {
-//---------------------------
+	//---------------------------
 	Shader* shader;
 	Material* material;
 	Texture* texture;
@@ -616,6 +553,7 @@ public:
 		material = _material;
 		geometry = _geometry;
 	}
+
 	virtual void SetModelingTransform(mat4& M, mat4& Minv) {
 		M = ScaleMatrix(scale) * RotationMatrix(rotationAngle, rotationAxis) * TranslateMatrix(translation);
 		Minv = TranslateMatrix(-translation) * RotationMatrix(-rotationAngle, rotationAxis) * ScaleMatrix(vec3(1 / scale.x, 1 / scale.y, 1 / scale.z));
@@ -636,47 +574,13 @@ public:
 	virtual void Animate(float tstart, float tend) { rotationAngle = 0.8f * tend; }
 };
 
-//---------------------------
-struct TetraObject : public Object {
-//---------------------------
-public:
-	Tetrahedron* tetra;
-	float height;
-	bool doesSting = true;
-
-	TetraObject(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _tetrahedron)
-		: Object(_shader, _material, _texture, _tetrahedron) {
-		tetra = _tetrahedron;
-		height = tetra->height;
-	}
-
-	void Draw(RenderState state) {
-		geometry->Draw();
-	}
-
-	void setSting(bool _doesSting) {
-		doesSting = _doesSting;
-	}
-
-	virtual void Animate(float tstart, float tend, Triangle base) {
-		if (doesSting) {
-			tetra->animate(base, height + height * sinf(2.0f * tend));
-		}
-		else
-			tetra->animate(base, height);
-	}
-};
 
 //---------------------------
 struct AntiBody : public Object {
-//---------------------------
+	//---------------------------
 	Tetrahedron* base;
-	TetraObject* baseObject;
 	std::vector<Tetrahedron*> spikes;
-	std::vector<TetraObject*> spikeObjects;
-	std::vector<TetraObject*> babySpikeObjects;
-
-	unsigned int vao, vbo;        // vertex array object
+	unsigned int vao, vbo;
 
 public:
 	AntiBody(Shader* _shader, Material* _material, Texture* _texture, Tetrahedron* _base)
@@ -688,56 +592,49 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
 		base = _base;
-		base->animate(base->height * 2.0f);
-
-		baseObject = new TetraObject(_shader, _material, _texture, base);
-		baseObject->doesSting = false;
-
-		genSpikes();
-	}
-
-	void genSpikes() {
-		for (Triangle side : base->triangles) {
-			vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
-			vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
-			vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
-
-			vec3 outDir = normalize(side.center - base->center);
-			float dotProd = dot(side.normal, outDir);
-			float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
-
-			Tetrahedron* spike;
-			if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
-				spike = new Tetrahedron(Triangle(h3, h2, h1));
-			else
-				spike = new Tetrahedron(Triangle(h1, h2, h3));
-
-			spikes.push_back(spike);
-			spikeObjects.push_back(new TetraObject(shader, material, texture, spike));
-		}
-
-		for (Tetrahedron* spike : spikes) {
-			for (Triangle side : spike->triangles) {
-				vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
-				vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
-				vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
-
-
-				vec3 outDir = normalize(side.center - spike->center);
-				float dotProd = dot(side.normal, outDir);
-				float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
-
-				Tetrahedron* babySpike;
-				if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
-					babySpike = new Tetrahedron(Triangle(h3, h2, h1));
-				else
-					babySpike = new Tetrahedron(Triangle(h1, h2, h3));
-
-				babySpikeObjects.push_back(new TetraObject(shader, material, texture, babySpike));
-			}
+		for (int i = 0; i < 4; i++) {
+			Create(&base->triangles[i], 0);
 		}
 	}
 
+	void Create(Triangle* triangle, int cnt) {
+		if (cnt >= 2) return;
+		
+		vec3 h1 = (triangle->vertices[0] + triangle->vertices[1]) / 2.0f;
+		vec3 h2 = (triangle->vertices[1] + triangle->vertices[2]) / 2.0f;
+		vec3 h3 = (triangle->vertices[2] + triangle->vertices[0]) / 2.0f;
+
+		vec3 outDir = normalize(triangle->center - base->center);
+		float dotProd = dot(triangle->normal, outDir);
+		float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
+
+		Triangle* spike;
+		if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
+			spike = new Triangle(h3, h2, h1);
+		else
+			spike = new Triangle(h1, h2, h3);
+
+		Tetrahedron* baseTetra = new Tetrahedron(spike);
+
+		for (int i = 1; i < 4; i++) {
+			Create(&baseTetra->triangles[i], cnt + 1);
+		}
+
+		Triangle* triangle1 = new Triangle(h1, h3, triangle->vertices[0]);
+		Triangle* triangle2 = new Triangle(h2, h1, triangle->vertices[1]);
+		Triangle* triangle3 = new Triangle(h3, h2, triangle->vertices[2]);
+
+		Create(triangle1, cnt + 1);
+		Create(triangle2, cnt + 1);
+		Create(triangle3, cnt + 1);
+
+		delete triangle1;
+		delete triangle2;
+		delete triangle3;
+
+		spikes.push_back(baseTetra);
+	}
+	
 	void Draw(RenderState state) {
 		mat4 M, Minv;
 		SetModelingTransform(M, Minv);
@@ -747,28 +644,13 @@ public:
 		state.material = material;
 		state.texture = texture;
 		shader->Bind(state);
-		
-		megaVtxData.clear();
 
-		baseObject->Draw(state);
-		for (TetraObject* spike : spikeObjects) {
-			spike->Draw(state);
-		}
-
-		glBufferData(GL_ARRAY_BUFFER, 12 * 21 * sizeof(VertexData), &megaVtxData[0], GL_DYNAMIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, allVtxData.size() * sizeof(VertexData), &allVtxData[0], GL_DYNAMIC_DRAW);
 		// Enable the vertex attribute arrays
 		glEnableVertexAttribArray(0);  // attribute array 0 = POSITION
 		glEnableVertexAttribArray(1);  // attribute array 1 = NORMAL
-		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD0
+		glEnableVertexAttribArray(2);  // attribute array 2 = TEXCOORD
 
-		/**
-		* index - Specifies the index of the generic vertex attribute to be modified.
-		* size - Specifies the number of components per generic vertex attribute. Must be 1, 2, 3, 4.
-		* type
-		* normalized
-		* stride - Specifies the byte offset between consecutive generic vertex attributes.
-		* pointer - Specifies a offset of the first component of the first generic vertex attribute in the array.
-		*/
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, position));
 		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, normal));
 		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (void*)offsetof(VertexData, texcoord));
@@ -779,46 +661,22 @@ public:
 		* first - Specifies the starting index in the enabled arrays.
 		* count - Specifies the number of indices to be rendered.
 		*/
-		glDrawArrays(GL_TRIANGLES, 0, 12 * 21);
+		glDrawArrays(GL_TRIANGLES, 0, allVtxData.size());
 	}
 
 	virtual void Animate(float tstart, float tend) {
 		rotationAngle = 0.8f * tend;
-		megaVtxData.clear();
 
-		baseObject->Animate(tstart, tend);
-		for (TetraObject* spikeObject : spikeObjects)
-			spikeObject->Animate(tstart, tend);
-
-		babySpikeObjects.clear();
-		for (Tetrahedron* spike : spikes) {
-			for (Triangle side : spike->triangles) {
-				vec3 h1 = (side.vertices[0] + side.vertices[1]) / 2.0f;
-				vec3 h2 = (side.vertices[1] + side.vertices[2]) / 2.0f;
-				vec3 h3 = (side.vertices[2] + side.vertices[0]) / 2.0f;
-
-
-				vec3 outDir = normalize(side.center - spike->center);
-				float dotProd = dot(side.normal, outDir);
-				float angle = dotProd > 1.0f ? acosf(1.0f) : acosf(dotProd);
-
-				Tetrahedron* babySpike;
-				if (angle > (M_PI / 2.0f) || angle < -(M_PI / 2.0f))
-					babySpike = new Tetrahedron(Triangle(h3, h2, h1));
-				else
-					babySpike = new Tetrahedron(Triangle(h1, h2, h3));
-
-				babySpikeObjects.push_back(new TetraObject(shader, material, texture, babySpike));
-			}
-		}
-		for (TetraObject* babySpikeObject : babySpikeObjects)
-			babySpikeObject->Animate(tstart, tend);
+		//allVtxData.clear();
+		//for (int i = 0; i < 4; i++) {
+		//	Create(&base->triangles[i], 0);
+		//}
 	}
 };
 
 //---------------------------
 class Scene {
-//---------------------------
+	//---------------------------
 	std::vector<Object*> objects;
 	Camera camera; // 3D camera
 	std::vector<Light> lights;
@@ -858,24 +716,11 @@ public:
 		// Geometries
 		Geometry* sphere = new Sphere();
 		Geometry* tracticoid = new Tracticoid();
-		Tetrahedron* tetrahedron = new Tetrahedron(Triangle(vec3(0, -2.0f/3.0f, 1)*3, vec3(1, -2.0f/3.0f, 0)*3, vec3(-0.36603, -2.0f/3.0f, -0.36603)*3));
-		// Triangle(vec3(0, 0, 1) * 3, vec3(1, 0, 0) * 3, vec3(-0.36603, 0, -0.36603) * 3), 1.1547 * 2
-
-		// Create objects by setting up their vertex data on the GPU
-		//Object* sphereObject1 = new Object(phongShader, material0, texture15x20, sphere);
-		//sphereObject1->translation = vec3(-3, 3, 0);
-		//sphereObject1->rotationAxis = vec3(0, 1, 1);
-		//objects.push_back(sphereObject1);
+		Tetrahedron* tetrahedron = new Tetrahedron(new Triangle(vec3(0, -2.0f / 3.0f, 1) * 3, vec3(1, -2.0f / 3.0f, 0) * 3, vec3(-0.36603, -2.0f / 3.0f, -0.36603) * 3));
 
 		AntiBody* antiBody = new AntiBody(phongShader, material1, myTexture, tetrahedron);
 		antiBody->rotationAxis = vec3(1, 1, 0);
 		objects.push_back(antiBody);
-
-		//Object* tracticoidObject1 = new Object(phongShader, material0, texture15x20, tracticoid);
-		//tracticoidObject1->translation = vec3(0, 3, 0);
-		//tracticoidObject1->rotationAxis = vec3(0, 1, 1);
-		//tracticoidObject1->scale = vec3(1.0f, 1.0f, 0.8f);
-		//objects.push_back(tracticoidObject1);
 
 		// Camera
 		camera.wEye = vec3(0, 0, 6);
@@ -884,15 +729,15 @@ public:
 
 		// Lights
 		lights.resize(3);
-		lights[0].wLightPos = vec4(5, 5, 4, 1);		// ideal top -> directional light source
+		lights[0].wLightPos = vec4(5, 5, 4, 0);		// ideal top -> directional light source
 		lights[0].La = vec3(0.1f, 0.1f, 1);
 		lights[0].Le = vec3(3, 0, 0);
 
-		lights[1].wLightPos = vec4(5, 10, 20, 1);	// ideal top -> directional light source
+		lights[1].wLightPos = vec4(5, 10, 20, 0);	// ideal top -> directional light source
 		lights[1].La = vec3(0.2f, 0.2f, 0.2f);
 		lights[1].Le = vec3(0, 3, 0);
 
-		lights[2].wLightPos = vec4(-5, 5, 5, 1);	// ideal top -> directional light source
+		lights[2].wLightPos = vec4(-5, 5, 5, 0);	// ideal top -> directional light source
 		lights[2].La = vec3(0.1f, 0.1f, 0.1f);
 		lights[2].Le = vec3(0, 0, 3);
 	}
@@ -947,7 +792,7 @@ void onMouseMotion(int pX, int pY) {
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
 	static float tend = 0;
-	const float dt = 0.1f; // dt is ”infinitesimal”
+	const float dt = 0.1f; // dt is Â”infinitesimalÂ”
 	float tstart = tend;
 	tend = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
 
